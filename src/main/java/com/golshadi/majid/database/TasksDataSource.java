@@ -3,7 +3,7 @@ package com.golshadi.majid.database;
 import android.content.ContentValues;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
-import android.util.Log;
+
 import com.golshadi.majid.Utils.helper.SqlString;
 import com.golshadi.majid.core.enums.QueueSort;
 import com.golshadi.majid.core.enums.TaskStates;
