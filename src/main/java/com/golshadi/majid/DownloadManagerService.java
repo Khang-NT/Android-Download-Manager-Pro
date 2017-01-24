@@ -53,17 +53,13 @@ public class DownloadManagerService extends Service {
         }
     }
 
-    private boolean isBinding = false;
-
     @Override
     public IBinder onBind(Intent intent) {
-        isBinding = true;
         return new Binder();
     }
 
     @Override
     public boolean onUnbind(Intent intent) {
-        isBinding = false;
         return false;
     }
 
