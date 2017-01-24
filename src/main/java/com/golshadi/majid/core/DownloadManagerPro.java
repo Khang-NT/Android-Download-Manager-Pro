@@ -14,8 +14,6 @@ import com.golshadi.majid.database.TasksDataSource;
 import com.golshadi.majid.database.elements.Chunk;
 import com.golshadi.majid.database.elements.Task;
 import com.golshadi.majid.report.ReportStructure;
-import com.golshadi.majid.report.exceptions.QueueDownloadInProgressException;
-import com.golshadi.majid.report.exceptions.QueueDownloadNotStartedException;
 import com.golshadi.majid.report.listener.DownloadManagerListenerModerator;
 
 import java.util.ArrayList;
@@ -34,11 +32,9 @@ public class DownloadManagerPro {
     private TasksDataSource tasksDataSource;
     private ChunksDataSource chunksDataSource;
 
-    private DownloadManagerListenerModerator downloadManagerListener;
+    private final DownloadManagerListenerModerator downloadManagerListener;
 
-    private QueueModerator qt;
-
-    private int downloadTaskPerTime;
+    private final QueueModerator queue;
 
     /**
      * <p>
@@ -48,8 +44,6 @@ public class DownloadManagerPro {
      * @param context
      */
     public DownloadManagerPro(Context context, int downloadTaskPerTime) {
-        this.downloadTaskPerTime = downloadTaskPerTime;
-
         dbHelper = new DatabaseHelper(context);
 
         // ready database data source to access tables
@@ -61,6 +55,13 @@ public class DownloadManagerPro {
 
         // moderate chunks to download one task
         moderator = new Moderator(tasksDataSource, chunksDataSource);
+
+        downloadManagerListener = new DownloadManagerListenerModerator();
+
+        List<Task> unCompletedTasks = tasksDataSource.getUnCompletedTasks(QueueSort.OLDEST_FIRST);
+
+        queue = new QueueModerator(tasksDataSource, chunksDataSource,
+                moderator, downloadManagerListener, unCompletedTasks, downloadTaskPerTime);
     }
 
     /**
@@ -89,38 +90,23 @@ public class DownloadManagerPro {
     }
 
     public void setDownloadTaskPerTime(int downloadTaskPerTime) {
-        this.downloadTaskPerTime = downloadTaskPerTime;
-        if (qt != null) {
-            qt.setDownloadTaskPerTime(downloadTaskPerTime);
-        }
+        queue.setDownloadTaskPerTime(downloadTaskPerTime);
     }
 
     public void startQueueDownload() {
-
-        List<Task> unCompletedTasks = tasksDataSource.getUnCompletedTasks(QueueSort.OLDEST_FIRST);
-
-        if (qt == null) {
-            qt = new QueueModerator(tasksDataSource, chunksDataSource,
-                    moderator, downloadManagerListener, unCompletedTasks, downloadTaskPerTime);
-            qt.startQueue();
-
-        } else {
-            throw new QueueDownloadInProgressException();
-        }
+        queue.startQueue();
     }
 
     public boolean isQueueStarted() {
-        return qt != null;
+        return queue.getDownloadingCount() > 0;
     }
 
     public void pauseQueueDownload() {
+        queue.pause();
+    }
 
-        if (qt != null) {
-            qt.pause();
-            qt = null;
-        } else {
-            throw new QueueDownloadNotStartedException();
-        }
+    public QueueModerator getQueueModerator() {
+        return queue;
     }
 
 

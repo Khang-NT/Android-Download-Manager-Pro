@@ -26,8 +26,6 @@ public class QueueModerator
     private int downloadTaskPerTime;
 
     private final SparseArray<Thread> downloaderList;
-    private boolean pauseFlag = false;
-
 
     public QueueModerator(TasksDataSource tasksDataSource, ChunksDataSource chunksDataSource,
                        Moderator localModerator, DownloadManagerListenerModerator downloadManagerListener,
@@ -41,7 +39,7 @@ public class QueueModerator
         this.downloadTaskPerTime = downloadPerTime;
         this.uncompletedTasks = new ArrayList<>(tasks);
         
-        downloaderList = new SparseArray<>(downloadTaskPerTime);
+        downloaderList = new SparseArray<>();
     }
 
     public QueueModerator setDownloadTaskPerTime(int downloadTaskPerTime) {
@@ -60,7 +58,6 @@ public class QueueModerator
     public void startQueue() {
         int location = 0;
         while (uncompletedTasks.size() > 0 &&
-                !pauseFlag &&
                 downloadTaskPerTime >= downloaderList.size()) {
             Task task = uncompletedTasks.get(location);
             Thread downloader =
@@ -71,9 +68,16 @@ public class QueueModerator
 
             downloader.start();
 
-
             location++;
         }
+    }
+
+    public int getDownloadingCount() {
+        return downloaderList.size();
+    }
+
+    public int getPendingTaskCount() {
+        return uncompletedTasks.size();
     }
 
     public void wakeUp(int taskID){
@@ -82,11 +86,10 @@ public class QueueModerator
     }
 
     public void pause(){
-        pauseFlag = true;
         for (int i = 0; i < downloaderList.size(); i++) {
             int id = downloaderList.keyAt(i);
             moderator.pause(id);
         }
-        pauseFlag = false;
+        downloaderList.clear();
     }
 }

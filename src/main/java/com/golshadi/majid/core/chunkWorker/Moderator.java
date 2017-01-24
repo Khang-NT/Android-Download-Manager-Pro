@@ -143,7 +143,8 @@ public class Moderator {
     if download task is un resumable it return -1 as percent
      */
     private int downloadByteThreshold = 0;
-    private final int THRESHOLD = 1024*20;
+    private final int THRESHOLD = 1024*50;
+
     public void process(int taskId, long byteRead){
         ReportStructure report = processReports.get(taskId);
         double percent = -1;
