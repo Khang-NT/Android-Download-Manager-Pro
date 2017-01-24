@@ -1,5 +1,7 @@
 package com.golshadi.majid.report;
 
+import android.support.annotation.Nullable;
+
 import com.golshadi.majid.Utils.helper.FileUtils;
 import com.golshadi.majid.core.enums.TaskStates;
 import com.golshadi.majid.database.elements.Chunk;
@@ -27,7 +29,8 @@ public class ReportStructure {
     public long downloadLength;
     public String saveAddress;
     public boolean priority;
-    public String jsonExtra;
+    public @Nullable String jsonExtra;
+    public @Nullable String errorMessage;
 
     public long setDownloadLength(long downloadedLength) {
         return downloadLength += downloadedLength;
@@ -53,10 +56,15 @@ public class ReportStructure {
         this.priority = task.priority;
         this.saveAddress = task.save_address + "/" + task.name + "." + task.extension;
         this.jsonExtra = task.jsonExtra;
+        this.errorMessage = task.errorMessage;
 
         this.percent = calculatePercent(task, taskChunks);
 
         return this;
+    }
+
+    public boolean isError() {
+        return state == TaskStates.ERROR;
     }
 
     /**

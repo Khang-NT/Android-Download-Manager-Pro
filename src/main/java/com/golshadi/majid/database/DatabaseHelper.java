@@ -14,7 +14,7 @@ import com.golshadi.majid.database.constants.TASKS;
 public class DatabaseHelper extends SQLiteOpenHelper {
 
     private final static String DATABASE_NAME = "com.doitflash.air.extension.downloadManagerPro";
-    private final static int DATABASE_VERSION = 5;
+    private final static int DATABASE_VERSION = 6;
 
     private final String CREATE_TABLE_TASKS =
             "CREATE TABLE IF NOT EXISTS " + TABLES.TASKS + " ("
@@ -30,7 +30,8 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                     + TASKS.COLUMN_PRIORITY + " BOOLEAN, "
                     + TASKS.COLUMN_SAVE_ADDRESS + " VARCHAR( 256 ),"
                     + TASKS.COLUMN_EXTENSION + " VARCHAR( 32 ),"
-                    + TASKS.COLUMN_EXTRA_JSON + " TEXT "
+                    + TASKS.COLUMN_EXTRA_JSON + " TEXT, "
+                    + TASKS.COLUMN_ERROR_MESSAGE + " TEXT "
                     + " ); ";
 
     private final String CREATE_TABLE_CHUNKS =

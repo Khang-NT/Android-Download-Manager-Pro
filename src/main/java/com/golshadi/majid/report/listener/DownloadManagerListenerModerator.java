@@ -99,6 +99,15 @@ public class DownloadManagerListenerModerator {
 
         context.sendBroadcast(intent);
     }
+
+    public void onDownloadError(long taskId, String errorMessage) {
+        DownloadManagerListener downloadManagerListener = null;
+        if (downloadManagerListenerWeakReference != null)
+            downloadManagerListener = downloadManagerListenerWeakReference.get();
+        if (downloadManagerListener != null) {
+            downloadManagerListener.onDownloadError(taskId, errorMessage);
+        }
+    }
     
     public void ConnectionLost(long taskId){
         DownloadManagerListener downloadManagerListener = null;

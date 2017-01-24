@@ -9,7 +9,7 @@ public class FileUtils {
     public static File create(String folder, String fileName){
         File file = new File(
                 address(folder, fileName));
-        Log.d("---------------------------------------", "Create file address: " + address(folder, fileName));
+        Log.d("--------------", "Create file address: " + address(folder, fileName));
         try {
             file.createNewFile();
         } catch (IOException e) {

@@ -106,7 +106,7 @@ public class Moderator {
 
         Task task = tasksDataSource.getTaskInfo(taskID);
 
-        if (task != null && task.state != TaskStates.PAUSED) {
+        if (task != null && task.state != TaskStates.PAUSED && task.state != TaskStates.ERROR) {
             // pause task asyncWorker
             // change task state
             // save in DB
@@ -215,5 +215,28 @@ public class Moderator {
             finishedDownloadQueueObserver.wakeUp(taskID);
 
         }
+    }
+
+    public void error(int taskId, String errorMessage) {
+        pause(taskId);
+        Task task = tasksDataSource.getTaskInfo(taskId);
+        task.state = TaskStates.ERROR;
+        task.errorMessage = errorMessage;
+        tasksDataSource.update(task);
+
+        // clean up
+        List<Chunk> taskChunks =
+                chunksDataSource.chunksRelatedTask(task.id);
+        for (Chunk chunk : taskChunks) {
+            FileUtils.delete(task.save_address, String.valueOf(chunk.id));
+            chunksDataSource.delete(chunk.id);
+        }
+
+        long size = FileUtils.size(task.save_address, task.name + "." + task.extension);
+        if (size > 0) {
+            FileUtils.delete(task.save_address, task.name + "." + task.extension);
+        }
+
+        downloadManagerListener.onDownloadError(taskId, errorMessage);
     }
 }

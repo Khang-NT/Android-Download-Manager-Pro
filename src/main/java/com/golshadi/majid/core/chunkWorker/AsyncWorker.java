@@ -15,8 +15,9 @@ import java.net.URL;
 /**
  * Created by Majid Golshadi on 4/14/2014.
  */
-public class AsyncWorker extends Thread{
+public class AsyncWorker extends Thread {
 
+    public static final int MAX_RETRY = 2;
     private final int BUFFER_SIZE = 1024;
 
     private final Task task;
@@ -28,7 +29,7 @@ public class AsyncWorker extends Thread{
     public boolean stop = false;
 
 
-    public AsyncWorker(Task task, Chunk chunk, Moderator moderator){
+    public AsyncWorker(Task task, Chunk chunk, Moderator moderator) {
         buffer = new byte[BUFFER_SIZE];
 
         this.task = task;
@@ -38,85 +39,97 @@ public class AsyncWorker extends Thread{
 
 
     @Override
-	public void run() {
-        try {
-        	
-            URL url = new URL(task.url);
-            HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-            
-            	// Avoid timeout exception which usually occurs in low network
-            connection.setConnectTimeout(0);
-            connection.setReadTimeout(0);
-            if (chunk.end != 0) // support unresumable links
-                connection.setRequestProperty("Range", "bytes=" + chunk.begin + "-" + chunk.end);
-            
-            connection.connect();
-            
+    public void run() {
+        int errorCount = 0;
+        while (errorCount < MAX_RETRY) {
+            try {
 
-            File cf = new File(FileUtils.address(task.save_address, String.valueOf(chunk.id)));
-            // Check response code first to avoid error stream
-            int status = connection.getResponseCode();
-           	InputStream remoteFileIn;
-              if(status == 416)
-                remoteFileIn = connection.getErrorStream();
-              else
-                remoteFileIn = connection.getInputStream();
-            
-            FileOutputStream chunkFile = new FileOutputStream(cf, true);
-            
-            int len = 0;
-            // set watchDoger to stop thread after 1sec if no connection lost
-            watchDog = new ConnectionWatchDog(5000, this);
-            watchDog.start();
-            while (!this.isInterrupted() &&  
-            		(len = remoteFileIn.read(buffer)) > 0) {
-            	
-            	watchDog.reset();
-                chunkFile.write(buffer, 0, len);
-                process(len);
+                URL url = new URL(task.url);
+                HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+
+                // Avoid timeout exception which usually occurs in low network
+                connection.setConnectTimeout(0);
+                connection.setReadTimeout(0);
+                if (chunk.end != 0) // support unresumable links
+                    connection.setRequestProperty("Range", "bytes=" + chunk.begin + "-" + chunk.end);
+
+                connection.connect();
+
+
+                File cf = new File(FileUtils.address(task.save_address, String.valueOf(chunk.id)));
+                // Check response code first to avoid error stream
+                int status = connection.getResponseCode();
+                InputStream remoteFileIn;
+                if (status == 416)
+                    remoteFileIn = connection.getErrorStream();
+                else
+                    remoteFileIn = connection.getInputStream();
+
+                FileOutputStream chunkFile = new FileOutputStream(cf, true);
+
+                int len = 0;
+                // set watchDoger to stop thread after 1sec if no connection lost
+                watchDog = new ConnectionWatchDog(7000, this);
+                watchDog.start();
+                while (!this.isInterrupted() &&
+                        (len = remoteFileIn.read(buffer)) > 0) {
+
+                    watchDog.reset();
+                    chunkFile.write(buffer, 0, len);
+                    process(len);
+                }
+
+                chunkFile.flush();
+                chunkFile.close();
+                watchDog.interrupt();
+                connection.disconnect();
+
+                if (!this.isInterrupted()) {
+                    observer.rebuild(chunk);
+                }
+
+
+            } catch (SocketTimeoutException e) {
+                e.printStackTrace();
+                errorCount ++;
+                if (errorCount == MAX_RETRY) {
+                    observer.error(task.id, "Connection timeout");
+                } else {
+                    continue;
+                }
+
+            } catch (IOException e) {
+                e.printStackTrace();
+                errorCount ++;
+                if (errorCount == MAX_RETRY) {
+                    observer.error(task.id, e.getMessage());
+                } else {
+                    continue;
+                }
             }
-            
-            chunkFile.flush();
-            chunkFile.close();
-            watchDog.interrupt();
-            connection.disconnect();
-            
-            if (!this.isInterrupted()) {
-            	observer.rebuild(chunk);
-			}
-            
-           
-        }catch (SocketTimeoutException e) {
-        	e.printStackTrace();
-        	
-        	observer.connectionLost(task.id);
-        	pauseRelatedTask();
-        	
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
 
-        return;
+            return;
+        }
     }
 
     private void process(int read) {
         observer.process(chunk.task_id, read);
     }
-    
-    private void pauseRelatedTask()	{
-    	observer.pause(task.id);
+
+    private void pauseRelatedTask() {
+        observer.pause(task.id);
     }
-    
+
     private boolean flag = true;
 
-    public void connectionTimeOut(){
-    	if (flag) {
-    		watchDog.interrupt();
-    		flag = false;
-    		observer.connectionLost(task.id);
-        	pauseRelatedTask();
-		}
-    	
+    public void connectionTimeOut() {
+        if (flag) {
+            watchDog.interrupt();
+            flag = false;
+            observer.connectionLost(task.id);
+            pauseRelatedTask();
+        }
+
     }
 
 }

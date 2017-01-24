@@ -162,6 +162,7 @@ public class DownloadManagerPro {
      *              4. paused
      *              5. download finished
      *              6. end
+     *              7. error
      * @return
      */
     public List<ReportStructure> downloadTasksInSameState(int state) {
@@ -234,6 +235,7 @@ public class DownloadManagerPro {
      * "false" if something goes wrong
      */
     public boolean delete(int token, boolean deleteTaskFile) {
+        moderator.pause(token);
         Task task = tasksDataSource.getTaskInfo(token);
         if (task.url != null) {
             List<Chunk> taskChunks =

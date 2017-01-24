@@ -37,6 +37,7 @@ public class Task {
     public String extension;
     public boolean priority;
     public @Nullable String jsonExtra;
+    public @Nullable String errorMessage;
 
     public Task() {
         this.id = 0;
@@ -70,6 +71,11 @@ public class Task {
         this.extension = "";
         this.priority = priority;
         this.jsonExtra = jsonExtra;
+    }
+
+    public Task setErrorMessage(@Nullable String errorMessage) {
+        this.errorMessage = errorMessage;
+        return this;
     }
 
     public ContentValues convertToContentValues() {
@@ -121,6 +127,8 @@ public class Task {
                 cr.getColumnIndex(TASKS.COLUMN_PRIORITY)) > 0;
         jsonExtra = cr.getString(
                 cr.getColumnIndex(TASKS.COLUMN_EXTRA_JSON));
+        errorMessage = cr.getString(
+                cr.getColumnIndex(TASKS.COLUMN_ERROR_MESSAGE));
     }
 
 //    public JSONObject toJsonObject() {

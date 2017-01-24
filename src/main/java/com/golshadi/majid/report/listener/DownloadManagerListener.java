@@ -21,4 +21,5 @@ public interface DownloadManagerListener {
     
     void connectionLost(long taskId);
 
+    void onDownloadError(long taskId, String errorMessage);
 }
