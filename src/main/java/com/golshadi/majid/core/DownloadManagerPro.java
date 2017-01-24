@@ -1,6 +1,7 @@
 package com.golshadi.majid.core;
 
 import android.content.Context;
+import android.os.Environment;
 import android.support.annotation.Nullable;
 import android.util.Log;
 
@@ -92,7 +93,8 @@ public class DownloadManagerPro {
             deleteSameDownloadNameTask(saveName);
 
         chunk = setMaxChunk(chunk);
-        Task task = insertNewTask(saveName, url, chunk, sdCardFolderAddress, true, jsonExtra);
+        String saveAddress = Environment.getExternalStorageDirectory() + "/" + sdCardFolderAddress;
+        Task task = insertNewTask(saveName, url, chunk, saveAddress, true, jsonExtra);
         queue.addTask(task);
         return task.id;
     }
@@ -273,8 +275,8 @@ public class DownloadManagerPro {
         return tasksDataSource.getUnCompletedTasks(QueueSort.OLDEST_FIRST);
     }
 
-    private Task insertNewTask(String taskName, String url, int chunk, String save_address, boolean priority, String jsonExtra) {
-        Task task = new Task(0, taskName, url, TaskStates.INIT, chunk, save_address, priority, jsonExtra);
+    private Task insertNewTask(String fileName, String url, int chunk, String save_address, boolean priority, String jsonExtra) {
+        Task task = new Task(0, fileName, url, TaskStates.INIT, chunk, save_address, priority, jsonExtra);
         task.id = (int) tasksDataSource.insertTask(task);
         Log.d("--------", "task id " + String.valueOf(task.id));
         return task;

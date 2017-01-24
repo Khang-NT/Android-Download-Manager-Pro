@@ -39,6 +39,7 @@ public class DownloadManagerService extends Service {
     public static final String ACTION_PAUSE_QUEUE = "download.manager.pause.queue";
     public static final String ACTION_REMOVE_TASK = "download.manager.remove.task";
     public static final String ACTION_ADD_TASK = "download.manager.add.task";
+    private HandlerThread handlerThread;
 
     public static DownloadManagerService getService(IBinder binder) {
         if (binder instanceof Binder) {
@@ -85,7 +86,8 @@ public class DownloadManagerService extends Service {
         WifiManager wifiManager = (WifiManager)getSystemService(Context.WIFI_SERVICE);
         wifiLock = wifiManager.createWifiLock(TAG);
 
-        HandlerThread handlerThread = new HandlerThread("download_manager_handler");
+        handlerThread = new HandlerThread("download_manager_handler");
+        handlerThread.start();
         looper = handlerThread.getLooper();
         handler = new Handler(looper, new HandlerCallback());
     }
@@ -148,6 +150,7 @@ public class DownloadManagerService extends Service {
     public void onDestroy() {
         super.onDestroy();
         looper.quit();
+        handlerThread.interrupt();
     }
 
     public static class TaskInfo implements Parcelable {
@@ -194,7 +197,7 @@ public class DownloadManagerService extends Service {
         public void writeToParcel(Parcel dest, int flags) {
             dest.writeString(url);
             dest.writeString(fileName);
-            dest.writeSerializable(sdCardFolder);
+            dest.writeString(sdCardFolder);
             dest.writeInt(overwrite ? 1 : 0);
             dest.writeString(jsonExtra);
         }
@@ -238,7 +241,7 @@ public class DownloadManagerService extends Service {
 
 
             builder = new NotificationCompat.Builder(DownloadManagerService.this)
-                    .setContentTitle("Download manager [" + appName + "]")
+                    .setContentTitle("Download manager")
                     .setSmallIcon(R.drawable.notification_downloader_icon)
                     .setAutoCancel(false);
         }
@@ -248,12 +251,13 @@ public class DownloadManagerService extends Service {
             QueueModerator queue = downloadManagerPro.getQueueModerator();
             int downloadingCount = queue.getDownloadingCount();
             int pendingTaskCount = queue.getPendingTaskCount();
-            builder.setContentInfo("Downloading: " + downloadingCount + ". Pending: " + pendingTaskCount);
+            builder.setContentText("Downloading: " + downloadingCount + ". Pending: " + pendingTaskCount);
 
             if (downloadManagerPro.isQueueStarted()) {
 
                 if (downloadingCount != lastDownloadingCount || pendingTaskCount != lastPendingTaskCount) {
 //                    builder.setOngoing(true);
+                    builder.setAutoCancel(false);
                     builder.mActions.clear();
                     builder.addAction(R.drawable.ic_pause_queue, "Pause all", pauseQueuePendingIntent);
                     startForeground(DOWNLOAD_MANAGER_NOTIFICATION_ID, builder.build());
@@ -278,11 +282,13 @@ public class DownloadManagerService extends Service {
                 }
 
                 if (lastPendingTaskCount != pendingTaskCount && isNotificationActive()) {
+                    builder.setOngoing(false);
+                    builder.setAutoCancel(true);
                     builder.mActions.clear();
                     builder.addAction(R.drawable.ic_start_queue, "Start queue", startQueuePendingIntent);
                     notificationManager.notify(DOWNLOAD_MANAGER_NOTIFICATION_ID, builder.build());
 
-                    notificationManager.notify();
+//                    notificationManager.notify();
 
                     lastPendingTaskCount = pendingTaskCount;
                 }

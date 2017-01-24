@@ -99,7 +99,8 @@ public class TasksDataSource {
     public List<Task> getUnCompletedTasks(int sortType) {
         List<Task> unCompleted = new ArrayList<Task>();
         String query = "SELECT * FROM " + TABLES.TASKS
-                + " WHERE " + TASKS.COLUMN_STATE + "!=" + SqlString.Int(TaskStates.END);
+                + " WHERE " + TASKS.COLUMN_STATE + " != " + SqlString.Int(TaskStates.END)
+                + " AND " + TASKS.COLUMN_STATE + " != " + TaskStates.ERROR;
         switch (sortType) {
             case QueueSort.HighPriority:
                 query += " AND " + TASKS.COLUMN_PRIORITY + "=" + SqlString.Int(1);

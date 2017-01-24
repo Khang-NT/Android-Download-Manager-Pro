@@ -2,6 +2,7 @@ package com.golshadi.majid.report.listener;
 
 import android.content.Context;
 import android.content.Intent;
+import android.util.Log;
 
 import com.golshadi.majid.core.DownloadManagerPro;
 import com.golshadi.majid.database.TasksDataSource;
@@ -14,6 +15,7 @@ import java.lang.ref.WeakReference;
  */
 public class DownloadManagerListenerModerator {
 
+    public static final String TAG = "DownloadListener";
     private final Context context;
     private final TasksDataSource tasksDataSource;
     private WeakReference<DownloadManagerListener> downloadManagerListenerWeakReference;
@@ -30,6 +32,7 @@ public class DownloadManagerListenerModerator {
     }
 
     public void OnDownloadStarted(long taskId) {
+        Log.d(TAG, "OnDownloadStarted() called with: taskId = [" + taskId + "]");
         DownloadManagerListener downloadManagerListener = null;
         if (downloadManagerListenerWeakReference != null)
             downloadManagerListener = downloadManagerListenerWeakReference.get();
@@ -39,6 +42,7 @@ public class DownloadManagerListenerModerator {
     }
 
     public void OnDownloadPaused(long taskId) {
+        Log.d(TAG, "OnDownloadPaused() called with: taskId = [" + taskId + "]");
         DownloadManagerListener downloadManagerListener = null;
         if (downloadManagerListenerWeakReference != null)
             downloadManagerListener = downloadManagerListenerWeakReference.get();
@@ -48,6 +52,7 @@ public class DownloadManagerListenerModerator {
     }
 
     public void onDownloadProcess(long taskId, double percent, long downloadedLength) {
+        Log.d(TAG, "onDownloadProcess() called with: taskId = [" + taskId + "], percent = [" + percent + "], downloadedLength = [" + downloadedLength + "]");
         DownloadManagerListener downloadManagerListener = null;
         if (downloadManagerListenerWeakReference != null)
             downloadManagerListener = downloadManagerListenerWeakReference.get();
@@ -57,6 +62,7 @@ public class DownloadManagerListenerModerator {
     }
 
     public void OnDownloadFinished(long taskId) {
+        Log.d(TAG, "OnDownloadFinished() called with: taskId = [" + taskId + "]");
         DownloadManagerListener downloadManagerListener = null;
         if (downloadManagerListenerWeakReference != null)
             downloadManagerListener = downloadManagerListenerWeakReference.get();
@@ -66,6 +72,7 @@ public class DownloadManagerListenerModerator {
     }
 
     public void OnDownloadRebuildStart(long taskId) {
+        Log.d(TAG, "OnDownloadRebuildStart() called with: taskId = [" + taskId + "]");
         DownloadManagerListener downloadManagerListener = null;
         if (downloadManagerListenerWeakReference != null)
             downloadManagerListener = downloadManagerListenerWeakReference.get();
@@ -76,6 +83,7 @@ public class DownloadManagerListenerModerator {
 
 
     public void OnDownloadRebuildFinished(long taskId) {
+        Log.d(TAG, "OnDownloadRebuildFinished() called with: taskId = [" + taskId + "]");
         DownloadManagerListener downloadManagerListener = null;
         if (downloadManagerListenerWeakReference != null)
             downloadManagerListener = downloadManagerListenerWeakReference.get();
@@ -85,6 +93,7 @@ public class DownloadManagerListenerModerator {
     }
 
     public void OnDownloadCompleted(long taskId) {
+        Log.d(TAG, "OnDownloadCompleted() called with: taskId = [" + taskId + "]");
         DownloadManagerListener downloadManagerListener = null;
         if (downloadManagerListenerWeakReference != null)
             downloadManagerListener = downloadManagerListenerWeakReference.get();
@@ -101,6 +110,7 @@ public class DownloadManagerListenerModerator {
     }
 
     public void onDownloadError(long taskId, String errorMessage) {
+        Log.d(TAG, "onDownloadError() called with: taskId = [" + taskId + "], errorMessage = [" + errorMessage + "]");
         DownloadManagerListener downloadManagerListener = null;
         if (downloadManagerListenerWeakReference != null)
             downloadManagerListener = downloadManagerListenerWeakReference.get();
@@ -110,6 +120,7 @@ public class DownloadManagerListenerModerator {
     }
     
     public void ConnectionLost(long taskId){
+        Log.d(TAG, "ConnectionLost() called with: taskId = [" + taskId + "]");
         DownloadManagerListener downloadManagerListener = null;
         if (downloadManagerListenerWeakReference != null)
             downloadManagerListener = downloadManagerListenerWeakReference.get();

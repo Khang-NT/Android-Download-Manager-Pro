@@ -238,5 +238,9 @@ public class Moderator {
         }
 
         downloadManagerListener.onDownloadError(taskId, errorMessage);
+
+        if (finishedDownloadQueueObserver != null) {
+            finishedDownloadQueueObserver.wakeUp(taskId);
+        }
     }
 }

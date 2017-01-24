@@ -1,5 +1,7 @@
 package com.golshadi.majid.core.chunkWorker;
 
+import android.util.Log;
+
 import com.golshadi.majid.Utils.helper.FileUtils;
 import com.golshadi.majid.database.elements.Chunk;
 import com.golshadi.majid.database.elements.Task;
@@ -18,6 +20,7 @@ import java.net.URL;
 public class AsyncWorker extends Thread {
 
     public static final int MAX_RETRY = 2;
+    public static final String TAG = "AsyncWorker";
     private final int BUFFER_SIZE = 1024;
 
     private final Task task;
@@ -92,6 +95,7 @@ public class AsyncWorker extends Thread {
             } catch (SocketTimeoutException e) {
                 e.printStackTrace();
                 errorCount ++;
+                Log.d(TAG, "chunk id: " + chunk.id + " errorCount:" + errorCount);
                 if (errorCount == MAX_RETRY) {
                     observer.error(task.id, "Connection timeout");
                 } else {
@@ -101,6 +105,7 @@ public class AsyncWorker extends Thread {
             } catch (IOException e) {
                 e.printStackTrace();
                 errorCount ++;
+                Log.d(TAG, "chunk id: " + chunk.id + " errorCount:" + errorCount);
                 if (errorCount == MAX_RETRY) {
                     observer.error(task.id, e.getMessage());
                 } else {

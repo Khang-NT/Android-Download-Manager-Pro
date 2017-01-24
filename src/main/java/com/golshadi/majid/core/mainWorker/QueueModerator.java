@@ -9,7 +9,6 @@ import com.golshadi.majid.database.TasksDataSource;
 import com.golshadi.majid.database.elements.Task;
 import com.golshadi.majid.report.listener.DownloadManagerListenerModerator;
 
-import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -22,9 +21,9 @@ public class QueueModerator
     private final ChunksDataSource chunksDataSource;
     private final Moderator moderator;
     private final DownloadManagerListenerModerator listener;
-    private final List<Task> uncompletedTasks;
     private int downloadTaskPerTime;
 
+    private final SparseArray<Task> uncompletedTasks;
     private final SparseArray<Thread> downloaderList;
 
     public QueueModerator(TasksDataSource tasksDataSource, ChunksDataSource chunksDataSource,
@@ -37,7 +36,10 @@ public class QueueModerator
         this.moderator.setQueueObserver(this);
         this.listener = downloadManagerListener;
         this.downloadTaskPerTime = downloadPerTime;
-        this.uncompletedTasks = new ArrayList<>(tasks);
+        this.uncompletedTasks = new SparseArray<>();
+        for (Task task : tasks) {
+            uncompletedTasks.put(task.id, task);
+        }
         
         downloaderList = new SparseArray<>();
     }
@@ -50,24 +52,22 @@ public class QueueModerator
     }
 
     public QueueModerator addTask(Task task) {
-        this.uncompletedTasks.add(task);
-        startQueue();
+        this.uncompletedTasks.put(task.id, task);
         return this;
     }
 
     public void startQueue() {
         int location = 0;
-        while (uncompletedTasks.size() > 0 &&
-                downloadTaskPerTime >= downloaderList.size()) {
-            Task task = uncompletedTasks.get(location);
-            Thread downloader =
-                    new AsyncStartDownload(tasksDataSource, chunksDataSource, moderator, listener, task);
+        while (location < uncompletedTasks.size() &&
+                downloadTaskPerTime > downloaderList.size()) {
+            Task task = uncompletedTasks.get(uncompletedTasks.keyAt(location));
+            if (downloaderList.get(task.id) == null) {
+                Thread downloader =
+                        new AsyncStartDownload(tasksDataSource, chunksDataSource, moderator, listener, task);
 
-            downloaderList.put(task.id, downloader);
-            uncompletedTasks.remove(location);
-
-            downloader.start();
-
+                downloaderList.put(task.id, downloader);
+                downloader.start();
+            }
             location++;
         }
     }
@@ -82,6 +82,7 @@ public class QueueModerator
 
     public void wakeUp(int taskID){
         downloaderList.remove(taskID);
+        uncompletedTasks.remove(taskID);
         startQueue();
     }
 

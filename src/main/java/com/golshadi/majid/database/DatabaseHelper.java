@@ -14,7 +14,7 @@ import com.golshadi.majid.database.constants.TASKS;
 public class DatabaseHelper extends SQLiteOpenHelper {
 
     private final static String DATABASE_NAME = "com.doitflash.air.extension.downloadManagerPro";
-    private final static int DATABASE_VERSION = 6;
+    private final static int DATABASE_VERSION = 7;
 
     private final String CREATE_TABLE_TASKS =
             "CREATE TABLE IF NOT EXISTS " + TABLES.TASKS + " ("
