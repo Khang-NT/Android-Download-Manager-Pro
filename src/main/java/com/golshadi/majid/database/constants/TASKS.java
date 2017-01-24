@@ -19,4 +19,5 @@ public class TASKS {
     public final static String COLUMN_SAVE_ADDRESS = "save_address";
     public final static String COLUMN_EXTENSION = "extension";
     public final static String COLUMN_PRIORITY  = "priority";
+    public final static String COLUMN_EXTRA_JSON = "extra_json";
 }

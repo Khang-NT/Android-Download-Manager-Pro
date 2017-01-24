@@ -1,5 +1,12 @@
 package com.golshadi.majid.report.listener;
 
+import android.content.Context;
+import android.content.Intent;
+
+import com.golshadi.majid.core.DownloadManagerPro;
+import com.golshadi.majid.database.TasksDataSource;
+import com.golshadi.majid.database.elements.Task;
+
 import java.lang.ref.WeakReference;
 
 /**
@@ -7,13 +14,14 @@ import java.lang.ref.WeakReference;
  */
 public class DownloadManagerListenerModerator {
 
+    private final Context context;
+    private final TasksDataSource tasksDataSource;
     private WeakReference<DownloadManagerListener> downloadManagerListenerWeakReference;
 
-    public DownloadManagerListenerModerator() {
-    }
 
-    public DownloadManagerListenerModerator(DownloadManagerListener listener){
-        downloadManagerListenerWeakReference = new WeakReference<>(listener);
+    public DownloadManagerListenerModerator(Context context, TasksDataSource tasksDataSource) {
+        this.context = context;
+        this.tasksDataSource = tasksDataSource;
     }
 
     public DownloadManagerListenerModerator setDownloadManagerListener(DownloadManagerListener downloadManagerListener) {
@@ -83,6 +91,13 @@ public class DownloadManagerListenerModerator {
         if (downloadManagerListener != null) {
             downloadManagerListener.OnDownloadCompleted(taskId);
         }
+
+        Task task = tasksDataSource.getTaskInfo(Long.valueOf(taskId).intValue());
+        Intent intent = new Intent(DownloadManagerPro.ACTION_DOWNLOAD_COMPLETED);
+        intent.putExtra(DownloadManagerPro.EXTRA_JSON_KEY, task.jsonExtra);
+        intent.putExtra(DownloadManagerPro.TASK_ID_KEY, task.id);
+
+        context.sendBroadcast(intent);
     }
     
     public void ConnectionLost(long taskId){

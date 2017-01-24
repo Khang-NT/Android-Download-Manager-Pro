@@ -1,6 +1,7 @@
 package com.golshadi.majid.core;
 
 import android.content.Context;
+import android.support.annotation.Nullable;
 import android.util.Log;
 
 import com.golshadi.majid.Utils.helper.FileUtils;
@@ -24,6 +25,10 @@ import java.util.List;
  * Created by Majid Golshadi on 4/10/2014.
  */
 public class DownloadManagerPro {
+
+    public static final String TASK_ID_KEY = "task_id";
+    public static final String EXTRA_JSON_KEY = "json_extra";
+    public static final String ACTION_DOWNLOAD_COMPLETED = "download.manager.download.completed";
 
     private static final int MAX_CHUNKS = 16;
 
@@ -57,7 +62,7 @@ public class DownloadManagerPro {
         // moderate chunks to download one task
         moderator = new Moderator(tasksDataSource, chunksDataSource);
 
-        downloadManagerListener = new DownloadManagerListenerModerator();
+        downloadManagerListener = new DownloadManagerListenerModerator(context, tasksDataSource);
 
         List<Task> unCompletedTasks = tasksDataSource.getUnCompletedTasks(QueueSort.OLDEST_FIRST);
 
@@ -80,14 +85,14 @@ public class DownloadManagerPro {
      * @return id
      * inserted task id
      */
-    public int addTask(String url, String saveName, String sdCardFolderAddress, int chunk, boolean overwrite) {
+    public int addTask(String url, String saveName, String sdCardFolderAddress, int chunk, boolean overwrite, @Nullable String jsonExtra) {
         if (!overwrite)
             saveName = getUniqueName(saveName);
         else
             deleteSameDownloadNameTask(saveName);
 
         chunk = setMaxChunk(chunk);
-        Task task = insertNewTask(saveName, url, chunk, sdCardFolderAddress, true);
+        Task task = insertNewTask(saveName, url, chunk, sdCardFolderAddress, true, jsonExtra);
         queue.addTask(task);
         return task.id;
     }
@@ -266,8 +271,8 @@ public class DownloadManagerPro {
         return tasksDataSource.getUnCompletedTasks(QueueSort.OLDEST_FIRST);
     }
 
-    private Task insertNewTask(String taskName, String url, int chunk, String save_address, boolean priority) {
-        Task task = new Task(0, taskName, url, TaskStates.INIT, chunk, save_address, priority);
+    private Task insertNewTask(String taskName, String url, int chunk, String save_address, boolean priority, String jsonExtra) {
+        Task task = new Task(0, taskName, url, TaskStates.INIT, chunk, save_address, priority, jsonExtra);
         task.id = (int) tasksDataSource.insertTask(task);
         Log.d("--------", "task id " + String.valueOf(task.id));
         return task;
