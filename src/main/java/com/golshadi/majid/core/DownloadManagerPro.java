@@ -14,6 +14,7 @@ import com.golshadi.majid.database.TasksDataSource;
 import com.golshadi.majid.database.elements.Chunk;
 import com.golshadi.majid.database.elements.Task;
 import com.golshadi.majid.report.ReportStructure;
+import com.golshadi.majid.report.listener.DownloadManagerListener;
 import com.golshadi.majid.report.listener.DownloadManagerListenerModerator;
 
 import java.util.ArrayList;
@@ -86,7 +87,9 @@ public class DownloadManagerPro {
             deleteSameDownloadNameTask(saveName);
 
         chunk = setMaxChunk(chunk);
-        return insertNewTask(saveName, url, chunk, sdCardFolderAddress, true);
+        Task task = insertNewTask(saveName, url, chunk, sdCardFolderAddress, true);
+        queue.addTask(task);
+        return task.id;
     }
 
     public void setDownloadTaskPerTime(int downloadTaskPerTime) {
@@ -109,6 +112,15 @@ public class DownloadManagerPro {
         return queue;
     }
 
+    public void setDownloadManagerListener(DownloadManagerListener listener) {
+        downloadManagerListener.setDownloadManagerListener(listener);
+    }
+
+    public void removeTask(int taskId) {
+        moderator.pause(taskId);
+        List<Chunk> chunks = chunksDataSource.chunksRelatedTask(taskId);
+        tasksDataSource.delete(taskId);
+    }
 
     //-----------Reports
 
@@ -254,11 +266,11 @@ public class DownloadManagerPro {
         return tasksDataSource.getUnCompletedTasks(QueueSort.OLDEST_FIRST);
     }
 
-    private int insertNewTask(String taskName, String url, int chunk, String save_address, boolean priority) {
+    private Task insertNewTask(String taskName, String url, int chunk, String save_address, boolean priority) {
         Task task = new Task(0, taskName, url, TaskStates.INIT, chunk, save_address, priority);
         task.id = (int) tasksDataSource.insertTask(task);
         Log.d("--------", "task id " + String.valueOf(task.id));
-        return task.id;
+        return task;
     }
 
 

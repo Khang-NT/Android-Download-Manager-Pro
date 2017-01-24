@@ -86,6 +86,8 @@ public class QueueModerator
     }
 
     public void pause(){
+        if (downloaderList.size() == 0) return;
+
         for (int i = 0; i < downloaderList.size(); i++) {
             int id = downloaderList.keyAt(i);
             moderator.pause(id);

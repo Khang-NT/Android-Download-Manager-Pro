@@ -1,5 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.golshadi.majid" >
+    <uses-permission android:name="android.permission.WAKE_LOCK"/>
 
+    <application>
+        <service android:name=".DownloadManagerService"
+            android:label="@string/download_manager_service_label">
+            <intent-filter>
+                <action android:name="download.manager.start.queue"/>
+                <action android:name="download.manager.pause.queue"/>
+                <action android:name="download.manager.remove.task"/>
+                <action android:name="download.manager.add.task"/>
+            </intent-filter>
+        </service>
+    </application>
 </manifest>
