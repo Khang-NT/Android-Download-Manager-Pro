@@ -4,6 +4,7 @@ import com.golshadi.majid.Utils.helper.FileUtils;
 import com.golshadi.majid.core.enums.TaskStates;
 import com.golshadi.majid.database.elements.Chunk;
 import com.golshadi.majid.database.elements.Task;
+
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -26,20 +27,21 @@ public class ReportStructure {
     public long downloadLength;
     public String saveAddress;
     public boolean priority;
+    public String jsonExtra;
 
-    public long setDownloadLength(long downloadedLength){
+    public long setDownloadLength(long downloadedLength) {
         return downloadLength += downloadedLength;
     }
 
-    public long getTotalSize(){
+    public long getTotalSize() {
         return fileSize;
     }
 
-    public boolean isResumable(){
+    public boolean isResumable() {
         return resumable;
     }
 
-    public ReportStructure setObjectValues(Task task, List<Chunk> taskChunks){
+    public ReportStructure setObjectValues(Task task, List<Chunk> taskChunks) {
         this.id = task.id;
         this.name = task.name;
         this.state = task.state;
@@ -49,38 +51,41 @@ public class ReportStructure {
         this.type = task.extension;
         this.chunks = task.chunks;
         this.priority = task.priority;
-        this.saveAddress = task.save_address+"/"+task.name+"."+task.extension;
+        this.saveAddress = task.save_address + "/" + task.name + "." + task.extension;
+        this.jsonExtra = task.jsonExtra;
 
         this.percent = calculatePercent(task, taskChunks);
 
         return this;
     }
 
-    /** calculate download percent from compare chunks size with real file size **/
-    private double calculatePercent(Task task, List<Chunk> chunks){
-    	// initialize report
-    	double report = 0;
-    	
-    	// if download not completed we have chunks 
-    	if (task.state != TaskStates.DOWNLOAD_FINISHED) {
-	        int sum = 0;    
-	        for (Chunk chunk : chunks){
-	            this.downloadLength += FileUtils.size(task.save_address, String.valueOf(chunk.id));
-	        }
-	
-	        if (task.size > 0) {
-	            report = ((float)downloadLength / task.size * 100);
-	        }   
-    	} else {
-    		this.downloadLength = task.size;
-    		report = 100;
-    	}
-    	
-    	return report;
+    /**
+     * calculate download percent from compare chunks size with real file size
+     **/
+    private double calculatePercent(Task task, List<Chunk> chunks) {
+        // initialize report
+        double report = 0;
+
+        // if download not completed we have chunks
+        if (task.state != TaskStates.DOWNLOAD_FINISHED) {
+            int sum = 0;
+            for (Chunk chunk : chunks) {
+                this.downloadLength += FileUtils.size(task.save_address, String.valueOf(chunk.id));
+            }
+
+            if (task.size > 0) {
+                report = ((float) downloadLength / task.size * 100);
+            }
+        } else {
+            this.downloadLength = task.size;
+            report = 100;
+        }
+
+        return report;
     }
 
 
-    public JSONObject toJsonObject(){
+    public JSONObject toJsonObject() {
         JSONObject json = new JSONObject();
         try {
             return json.put("token", String.valueOf(id))
