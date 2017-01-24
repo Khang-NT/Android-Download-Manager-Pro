@@ -31,10 +31,10 @@ import java.util.List;
  */
 public class DownloadManagerPro {
 
-    private final int MAX_CHUNKS = 16;
+    private static final int MAX_CHUNKS = 16;
 
-    static String SAVE_FILE_FOLDER = null;
-    static int maximumUserChunks;
+    private String SAVE_FILE_FOLDER = null;
+    private int maximumUserChunks;
     private Moderator moderator;
     private DatabaseHelper dbHelper;
 
@@ -42,23 +42,18 @@ public class DownloadManagerPro {
     private ChunksDataSource chunksDataSource;
 
     private DownloadManagerListenerModerator downloadManagerListener;
-    
+
     private QueueModerator qt;
-
-
-
-
-
 
 
     /**
      * <p>
      * Download manager pro Object constructor
-     *</p>
+     * </p>
      *
      * @param context
      */
-    public DownloadManagerPro(Context context){
+    public DownloadManagerPro(Context context) {
         dbHelper = new DatabaseHelper(context);
 //        dbHelper.close();
 
@@ -75,53 +70,48 @@ public class DownloadManagerPro {
 
 
     /**
-     *  <p>
-     *      i don't want to force developer to init download manager
-     *      so i can't get downloadManagerListener at constructor but that way seems better than now
-     *  </p>
-     *  @param sdCardFolderAddress
+     * <p>
+     * i don't want to force developer to init download manager
+     * so i can't get downloadManagerListener at constructor but that way seems better than now
+     * </p>
+     *
+     * @param sdCardFolderAddress
      * @param maxChunks
      * @param listener
      */
-    public void init(String sdCardFolderAddress, int maxChunks, DownloadManagerListener listener){
+    public void init(String sdCardFolderAddress, int maxChunks, DownloadManagerListener listener) {
         // ready folder to save download content in it
         File saveFolder = new File(Environment.getExternalStorageDirectory(), sdCardFolderAddress);
         if (!saveFolder.exists())
+            //noinspection ResultOfMethodCallIgnored
             saveFolder.mkdirs();
 
-        SAVE_FILE_FOLDER = saveFolder.getPath().toString();
+        SAVE_FILE_FOLDER = saveFolder.getPath();
         maximumUserChunks = setMaxChunk(maxChunks);
         downloadManagerListener = new DownloadManagerListenerModerator(listener);
     }
 
 
-
     /**
      * <p>
-     *      add a new download Task
+     * add a new download Task
      * </p>
      *
-     * @param saveName
-     *              file name
-     * @param url
-     *              url file address
-     * @param chunk
-     *              number of chunks
-     * @param sdCardFolderAddress
-     *              downloaded file save address
-     * @param overwrite
-     *              if exist an other file with same name
-     *              "true" over write that file
-     *              "false" find new name and save it with new name
-     *
+     * @param saveName            file name
+     * @param url                 url file address
+     * @param chunk               number of chunks
+     * @param sdCardFolderAddress downloaded file save address
+     * @param overwrite           if exist an other file with same name
+     *                            "true" over write that file
+     *                            "false" find new name and save it with new name
      * @return id
-     *          inserted task id
+     * inserted task id
      */
     public int addTask(String saveName, String url, int chunk,
                        String sdCardFolderAddress, boolean overwrite,
-                       boolean priority){
+                       boolean priority) {
 
-        if ( ! overwrite )
+        if (!overwrite)
             saveName = getUniqueName(saveName);
         else
             deleteSameDownloadNameTask(saveName);
@@ -132,7 +122,7 @@ public class DownloadManagerPro {
     }
 
 
-    public int addTask(String saveName, String url, int chunk, boolean overwrite, boolean priority){
+    public int addTask(String saveName, String url, int chunk, boolean overwrite, boolean priority) {
         return this.addTask(saveName, url, chunk, SAVE_FILE_FOLDER, overwrite, priority);
     }
 
@@ -142,12 +132,11 @@ public class DownloadManagerPro {
 
 
     /**
-     *<p>
-     *     first of all check task state and depend on start download process from where ever need
-     *</p>
+     * <p>
+     * first of all check task state and depend on start download process from where ever need
+     * </p>
      *
-     * @param token
-     *              now token is download task id
+     * @param token now token is download task id
      * @throws java.io.IOException
      */
     public void startDownload(int token) throws IOException {
@@ -183,6 +172,9 @@ public class DownloadManagerPro {
         }
     }
 
+    public boolean isQueueStarted() {
+        return qt != null;
+    }
 
     /**
      * <p>
@@ -197,6 +189,7 @@ public class DownloadManagerPro {
 
     /**
      * pause queue download
+     *
      * @throws com.golshadi.majid.report.exceptions.QueueDownloadNotStartedException
      */
     public void pauseQueueDownload()
@@ -205,15 +198,10 @@ public class DownloadManagerPro {
         if (qt != null) {
             qt.pause();
             qt = null;
-        }
-        else {
+        } else {
             throw new QueueDownloadNotStartedException();
         }
     }
-
-
-
-
 
 
     //-----------Reports
@@ -221,8 +209,7 @@ public class DownloadManagerPro {
     /**
      * report task download status in "ReportStructure" style
      *
-     * @param token
-     *              when you add a new download task it's return to you
+     * @param token when you add a new download task it's return to you
      * @return
      */
     public ReportStructure singleDownloadStatus(int token) {
@@ -241,11 +228,11 @@ public class DownloadManagerPro {
 
     /**
      * <p>
-     *     it's an report method for
-     *     return list of download task in same state that developer want as ReportStructure List object
+     * it's an report method for
+     * return list of download task in same state that developer want as ReportStructure List object
      * </p>
-     * @param state
-     *              0. get all downloads Status
+     *
+     * @param state 0. get all downloads Status
      *              1. init
      *              2. ready
      *              3. downloading
@@ -254,7 +241,7 @@ public class DownloadManagerPro {
      *              6. end
      * @return
      */
-    public List<ReportStructure> downloadTasksInSameState(int state){
+    public List<ReportStructure> downloadTasksInSameState(int state) {
         List<ReportStructure> reportList;
         List<Task> inStateTasks = tasksDataSource.getTasksInState(state);
 
@@ -270,7 +257,7 @@ public class DownloadManagerPro {
      *
      * @return
      */
-    public List<ReportStructure> lastCompletedDownloads(){
+    public List<ReportStructure> lastCompletedDownloads() {
         List<ReportStructure> reportList = new ArrayList<ReportStructure>();
         List<Task> lastCompleted = tasksDataSource.getUnnotifiedCompleted();
 
@@ -280,11 +267,10 @@ public class DownloadManagerPro {
     }
 
 
-
-    private List<ReportStructure> readyTaskList(List<Task> tasks){
+    private List<ReportStructure> readyTaskList(List<Task> tasks) {
         List<ReportStructure> reportList = new ArrayList<ReportStructure>();
 
-        for (Task task : tasks){
+        for (Task task : tasks) {
             List<Chunk> taskChunks = chunksDataSource.chunksRelatedTask(task.id);
             ReportStructure singleReport = new ReportStructure();
             singleReport.setObjectValues(task, taskChunks);
@@ -297,21 +283,20 @@ public class DownloadManagerPro {
 
     /**
      * <p>
-     *     check all notified tasks
-     *     so in another "lastCompletedDownloads" call ,completed task does not show again
-     *
-     *     persian:
-     *          "lastCompletedDownloads" list akharin task haii ke takmil shodeand ra namayesh midahad
-     *          ba seda zadan in method tamami task haii ke dar gozaresh e ghabli elam shode boodand ra
-     *          az liste "lastCompeletedDownloads" hazf mikonad
-     *
-     *          !!!SHIT!!!
+     * check all notified tasks
+     * so in another "lastCompletedDownloads" call ,completed task does not show again
+     * <p>
+     * persian:
+     * "lastCompletedDownloads" list akharin task haii ke takmil shodeand ra namayesh midahad
+     * ba seda zadan in method tamami task haii ke dar gozaresh e ghabli elam shode boodand ra
+     * az liste "lastCompeletedDownloads" hazf mikonad
+     * <p>
+     * !!!SHIT!!!
      * </p>
      *
-     * @return
-     *          true or false
+     * @return true or false
      */
-    public boolean notifiedTaskChecked(){
+    public boolean notifiedTaskChecked() {
         return tasksDataSource.checkUnNotifiedTasks();
     }
 
@@ -320,17 +305,14 @@ public class DownloadManagerPro {
      * delete download task from db and if you set deleteTaskFile as true
      * it's go to saved folder and delete that file
      *
-     * @param token
-     *              when you add a new download task it's return to you
-     * @param deleteTaskFile
-     *              delete completed download file from sd card if you set it true
-     * @return
-     *              "true" if anything goes right
-     *              "false" if something goes wrong
+     * @param token          when you add a new download task it's return to you
+     * @param deleteTaskFile delete completed download file from sd card if you set it true
+     * @return "true" if anything goes right
+     * "false" if something goes wrong
      */
-    public boolean delete(int token, boolean deleteTaskFile){
+    public boolean delete(int token, boolean deleteTaskFile) {
         Task task = tasksDataSource.getTaskInfo(token);
-        if (task.url != null){
+        if (task.url != null) {
             List<Chunk> taskChunks =
                     chunksDataSource.chunksRelatedTask(task.id);
             for (Chunk chunk : taskChunks) {
@@ -340,7 +322,7 @@ public class DownloadManagerPro {
 
             if (deleteTaskFile) {
                 long size = FileUtils.size(task.save_address, task.name + "." + task.extension);
-                if (size > 0){
+                if (size > 0) {
                     FileUtils.delete(task.save_address, task.name + "." + task.extension);
                 }
             }
@@ -357,25 +339,24 @@ public class DownloadManagerPro {
      * if your activity goes to paused or stop state
      * you have to call this method to disconnect from db
      */
-    public void dispose(){
+    public void dispose() {
         dbHelper.close();
     }
 
 
-
-    private List<Task> uncompleted(){
+    private List<Task> uncompleted() {
         return tasksDataSource.getUnCompletedTasks(QueueSort.oldestFirst);
     }
 
     private int insertNewTask(String taskName, String url, int chunk, String save_address, boolean priority) {
         Task task = new Task(0, taskName, url, TaskStates.INIT, chunk, save_address, priority);
         task.id = (int) tasksDataSource.insertTask(task);
-        Log.d("--------", "task id "+String.valueOf(task.id));
+        Log.d("--------", "task id " + String.valueOf(task.id));
         return task.id;
     }
 
 
-    private int setMaxChunk(int chunk){
+    private int setMaxChunk(int chunk) {
 
         if (chunk < MAX_CHUNKS)
             return chunk;
@@ -383,22 +364,21 @@ public class DownloadManagerPro {
         return MAX_CHUNKS;
     }
 
-    private String getUniqueName(String name){
+    private String getUniqueName(String name) {
         String uniqueName = name;
         int count = 0;
 
-        while ( isDuplicatedName(uniqueName) ){
-            uniqueName = name+"_"+count;
+        while (isDuplicatedName(uniqueName)) {
+            uniqueName = name + "_" + count;
             count++;
         }
 
         return uniqueName;
     }
 
-    private boolean isDuplicatedName(String name){
-        return tasksDataSource.containsTask( name );
+    private boolean isDuplicatedName(String name) {
+        return tasksDataSource.containsTask(name);
     }
-
 
 
     /*
@@ -411,8 +391,8 @@ public class DownloadManagerPro {
             END           = 5;
         so if his token was wrong return -1
      */
-    private void deleteSameDownloadNameTask(String saveName){
-        if (isDuplicatedName(saveName)){
+    private void deleteSameDownloadNameTask(String saveName) {
+        if (isDuplicatedName(saveName)) {
             Task task = tasksDataSource.getTaskInfoWithName(saveName);
             tasksDataSource.delete(task.id);
             FileUtils.delete(task.save_address, task.name + "." + task.extension);

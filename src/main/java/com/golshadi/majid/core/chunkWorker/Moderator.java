@@ -1,6 +1,8 @@
 package com.golshadi.majid.core.chunkWorker;
 
 
+import android.util.SparseArray;
+
 import com.golshadi.majid.Utils.helper.FileUtils;
 import com.golshadi.majid.core.enums.TaskStates;
 import com.golshadi.majid.core.mainWorker.QueueModerator;
@@ -11,7 +13,6 @@ import com.golshadi.majid.database.elements.Task;
 import com.golshadi.majid.report.ReportStructure;
 import com.golshadi.majid.report.listener.DownloadManagerListenerModerator;
 
-import java.util.HashMap;
 import java.util.List;
 
 /**
@@ -27,18 +28,18 @@ public class Moderator {
 
     private ChunksDataSource chunksDataSource;  // query on chunk table
     private TasksDataSource tasksDataSource;    // query on task table
-    public DownloadManagerListenerModerator downloadManagerListener;
+    DownloadManagerListenerModerator downloadManagerListener;
 
-    private HashMap<Integer , Thread> workerList;          // chunk downloader list
-    private HashMap<Integer , ReportStructure> processReports;  // to save download percent
+    private SparseArray<Thread> workerList;          // chunk downloader list
+    private SparseArray<ReportStructure> processReports;  // to save download percent
 
     private QueueModerator finishedDownloadQueueObserver;
 
     public Moderator(TasksDataSource tasksDS, ChunksDataSource chunksDS){
         tasksDataSource = tasksDS;
         chunksDataSource = chunksDS;
-        workerList = new HashMap<Integer, Thread>(); // chunk downloader with they id key
-        processReports = new HashMap<Integer, ReportStructure>();
+        workerList = new SparseArray<>(); // chunk downloader with they id key
+        processReports = new SparseArray<>();
     }
 
     public void setQueueObserver(QueueModerator queueObserver ){
@@ -58,8 +59,8 @@ public class Moderator {
         rps.setObjectValues(task, taskChunks);
         processReports.put(task.id, rps);
 
-        Long downloaded;
-        Long totalSize;
+        long downloaded;
+        long totalSize;
         if (taskChunks != null) {
 
             // set task state to Downloading
@@ -70,9 +71,8 @@ public class Moderator {
             // get any chunk file size calculate
             for (Chunk chunk : taskChunks) {
             	
-                downloaded = new Long(FileUtils
-                        .size(task.save_address, String.valueOf(chunk.id)));
-                totalSize = new Long(chunk.end - chunk.begin + 1);
+                downloaded = FileUtils.size(task.save_address, String.valueOf(chunk.id));
+                totalSize = chunk.end - chunk.begin + 1;
                 
                 if (!task.resumable){
                     chunk.begin = 0;
@@ -82,7 +82,7 @@ public class Moderator {
                     workerList.put(chunk.id, chunkDownloaderThread);
                     chunkDownloaderThread.start();
 
-                }else if (!downloaded.equals(totalSize)) {
+                }else if (downloaded != totalSize) {
                     // where it has to begin
                     // modify start point but i have not save it in Database
                     chunk.begin = chunk.begin + downloaded;

@@ -9,7 +9,6 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
-import java.net.MalformedURLException;
 import java.net.SocketTimeoutException;
 import java.net.URL;
 
@@ -91,10 +90,8 @@ public class AsyncWorker extends Thread{
         	e.printStackTrace();
         	
         	observer.connectionLost(task.id);
-        	puaseRelatedTask();
+        	pauseRelatedTask();
         	
-        } catch (MalformedURLException e) {
-            e.printStackTrace();
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -106,17 +103,18 @@ public class AsyncWorker extends Thread{
         observer.process(chunk.task_id, read);
     }
     
-    private void puaseRelatedTask()	{
+    private void pauseRelatedTask()	{
     	observer.pause(task.id);
     }
     
     private boolean flag = true;
+
     public void connectionTimeOut(){
     	if (flag) {
     		watchDog.interrupt();
     		flag = false;
     		observer.connectionLost(task.id);
-        	puaseRelatedTask();
+        	pauseRelatedTask();
 		}
     	
     }

@@ -1,5 +1,7 @@
 package com.golshadi.majid.core.mainWorker;
 
+import android.util.SparseArray;
+
 import com.golshadi.majid.Utils.QueueObserver;
 import com.golshadi.majid.core.chunkWorker.Moderator;
 import com.golshadi.majid.database.ChunksDataSource;
@@ -7,9 +9,7 @@ import com.golshadi.majid.database.TasksDataSource;
 import com.golshadi.majid.database.elements.Task;
 import com.golshadi.majid.report.listener.DownloadManagerListenerModerator;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 /**
  * Created by Majid Golshadi on 4/21/2014.
@@ -24,7 +24,7 @@ public class QueueModerator
     private final List<Task> uncompletedTasks;
     private final int downloadTaskPerTime;
 
-    private HashMap<Integer, Thread> downloaderList;
+    private SparseArray<Thread> downloaderList;
     private boolean pauseFlag = false;
 
 
@@ -40,8 +40,7 @@ public class QueueModerator
         this.downloadTaskPerTime = downloadPerTime;
         this.uncompletedTasks = tasks;
         
-        downloaderList =
-                new HashMap<Integer, Thread>(downloadTaskPerTime);
+        downloaderList = new SparseArray<>(downloadTaskPerTime);
     }
 
 
@@ -76,12 +75,10 @@ public class QueueModerator
 
     public void pause(){
         pauseFlag = true;
-        
-        for (Map.Entry entry : downloaderList.entrySet()) {
-            Integer id = (Integer) entry.getKey();
+        for (int i = 0; i < downloaderList.size(); i++) {
+            int id = downloaderList.keyAt(i);
             moderator.pause(id);
         }
-        
         pauseFlag = false;
     }
 }
