@@ -9,6 +9,7 @@ import com.golshadi.majid.database.TasksDataSource;
 import com.golshadi.majid.database.elements.Task;
 import com.golshadi.majid.report.listener.DownloadManagerListenerModerator;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -22,9 +23,9 @@ public class QueueModerator
     private final Moderator moderator;
     private final DownloadManagerListenerModerator listener;
     private final List<Task> uncompletedTasks;
-    private final int downloadTaskPerTime;
+    private int downloadTaskPerTime;
 
-    private SparseArray<Thread> downloaderList;
+    private final SparseArray<Thread> downloaderList;
     private boolean pauseFlag = false;
 
 
@@ -38,34 +39,41 @@ public class QueueModerator
         this.moderator.setQueueObserver(this);
         this.listener = downloadManagerListener;
         this.downloadTaskPerTime = downloadPerTime;
-        this.uncompletedTasks = tasks;
+        this.uncompletedTasks = new ArrayList<>(tasks);
         
         downloaderList = new SparseArray<>(downloadTaskPerTime);
     }
 
+    public QueueModerator setDownloadTaskPerTime(int downloadTaskPerTime) {
+        if (downloadTaskPerTime < 1)
+            throw new IllegalArgumentException("Invalid download task per time: " + downloadTaskPerTime);
+        this.downloadTaskPerTime = downloadTaskPerTime;
+        return this;
+    }
+
+    public QueueModerator addTask(Task task) {
+        this.uncompletedTasks.add(task);
+        startQueue();
+        return this;
+    }
 
     public void startQueue() {
+        int location = 0;
+        while (uncompletedTasks.size() > 0 &&
+                !pauseFlag &&
+                downloadTaskPerTime >= downloaderList.size()) {
+            Task task = uncompletedTasks.get(location);
+            Thread downloader =
+                    new AsyncStartDownload(tasksDataSource, chunksDataSource, moderator, listener, task);
 
-    	if (uncompletedTasks != null) {
-	
-    		int location = 0;
-    		while (uncompletedTasks.size() > 0 && 
-    				!pauseFlag &&
-    				downloadTaskPerTime >= downloaderList.size()) {
-    			Task task = uncompletedTasks.get(location);
-    			Thread downloader =
-	                    new AsyncStartDownload(tasksDataSource, chunksDataSource, moderator, listener, task);
-	            
-	            downloaderList.put(task.id, downloader);
-	            uncompletedTasks.remove(location);
-	            
-	            downloader.start();
-	            
-	            
-				location++;
-			}
-    			        
-    	}
+            downloaderList.put(task.id, downloader);
+            uncompletedTasks.remove(location);
+
+            downloader.start();
+
+
+            location++;
+        }
     }
 
     public void wakeUp(int taskID){

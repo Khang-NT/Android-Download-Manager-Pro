@@ -1,14 +1,12 @@
 package com.golshadi.majid.core;
 
 import android.content.Context;
-import android.os.Environment;
 import android.util.Log;
 
 import com.golshadi.majid.Utils.helper.FileUtils;
 import com.golshadi.majid.core.chunkWorker.Moderator;
 import com.golshadi.majid.core.enums.QueueSort;
 import com.golshadi.majid.core.enums.TaskStates;
-import com.golshadi.majid.core.mainWorker.AsyncStartDownload;
 import com.golshadi.majid.core.mainWorker.QueueModerator;
 import com.golshadi.majid.database.ChunksDataSource;
 import com.golshadi.majid.database.DatabaseHelper;
@@ -18,11 +16,8 @@ import com.golshadi.majid.database.elements.Task;
 import com.golshadi.majid.report.ReportStructure;
 import com.golshadi.majid.report.exceptions.QueueDownloadInProgressException;
 import com.golshadi.majid.report.exceptions.QueueDownloadNotStartedException;
-import com.golshadi.majid.report.listener.DownloadManagerListener;
 import com.golshadi.majid.report.listener.DownloadManagerListenerModerator;
 
-import java.io.File;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -33,8 +28,6 @@ public class DownloadManagerPro {
 
     private static final int MAX_CHUNKS = 16;
 
-    private String SAVE_FILE_FOLDER = null;
-    private int maximumUserChunks;
     private Moderator moderator;
     private DatabaseHelper dbHelper;
 
@@ -45,6 +38,7 @@ public class DownloadManagerPro {
 
     private QueueModerator qt;
 
+    private int downloadTaskPerTime;
 
     /**
      * <p>
@@ -53,9 +47,10 @@ public class DownloadManagerPro {
      *
      * @param context
      */
-    public DownloadManagerPro(Context context) {
+    public DownloadManagerPro(Context context, int downloadTaskPerTime) {
+        this.downloadTaskPerTime = downloadTaskPerTime;
+
         dbHelper = new DatabaseHelper(context);
-//        dbHelper.close();
 
         // ready database data source to access tables
         tasksDataSource = new TasksDataSource();
@@ -67,30 +62,6 @@ public class DownloadManagerPro {
         // moderate chunks to download one task
         moderator = new Moderator(tasksDataSource, chunksDataSource);
     }
-
-
-    /**
-     * <p>
-     * i don't want to force developer to init download manager
-     * so i can't get downloadManagerListener at constructor but that way seems better than now
-     * </p>
-     *
-     * @param sdCardFolderAddress
-     * @param maxChunks
-     * @param listener
-     */
-    public void init(String sdCardFolderAddress, int maxChunks, DownloadManagerListener listener) {
-        // ready folder to save download content in it
-        File saveFolder = new File(Environment.getExternalStorageDirectory(), sdCardFolderAddress);
-        if (!saveFolder.exists())
-            //noinspection ResultOfMethodCallIgnored
-            saveFolder.mkdirs();
-
-        SAVE_FILE_FOLDER = saveFolder.getPath();
-        maximumUserChunks = setMaxChunk(maxChunks);
-        downloadManagerListener = new DownloadManagerListenerModerator(listener);
-    }
-
 
     /**
      * <p>
@@ -107,64 +78,30 @@ public class DownloadManagerPro {
      * @return id
      * inserted task id
      */
-    public int addTask(String saveName, String url, int chunk,
-                       String sdCardFolderAddress, boolean overwrite,
-                       boolean priority) {
-
+    public int addTask(String url, String saveName, String sdCardFolderAddress, int chunk, boolean overwrite) {
         if (!overwrite)
             saveName = getUniqueName(saveName);
         else
             deleteSameDownloadNameTask(saveName);
-        Log.d("--------", "overwrite");
+
         chunk = setMaxChunk(chunk);
-        Log.d("--------", "ma chunk");
-        return insertNewTask(saveName, url, chunk, sdCardFolderAddress, priority);
+        return insertNewTask(saveName, url, chunk, sdCardFolderAddress, true);
     }
 
-
-    public int addTask(String saveName, String url, int chunk, boolean overwrite, boolean priority) {
-        return this.addTask(saveName, url, chunk, SAVE_FILE_FOLDER, overwrite, priority);
+    public void setDownloadTaskPerTime(int downloadTaskPerTime) {
+        this.downloadTaskPerTime = downloadTaskPerTime;
+        if (qt != null) {
+            qt.setDownloadTaskPerTime(downloadTaskPerTime);
+        }
     }
 
-    public int addTask(String saveName, String url, boolean overwrite, boolean priority) {
-        return this.addTask(saveName, url, maximumUserChunks, SAVE_FILE_FOLDER, overwrite, priority);
-    }
+    public void startQueueDownload() {
 
-
-    /**
-     * <p>
-     * first of all check task state and depend on start download process from where ever need
-     * </p>
-     *
-     * @param token now token is download task id
-     * @throws java.io.IOException
-     */
-    public void startDownload(int token) throws IOException {
-
-        // switch on task state
-        Log.d("--------", "task state");
-        Task task = tasksDataSource.getTaskInfo(token);
-        Log.d("--------", "task state 1");
-        Thread asyncStartDownload
-                = new AsyncStartDownload(tasksDataSource, chunksDataSource, moderator, downloadManagerListener, task);
-        Log.d("--------", "define async download");
-        asyncStartDownload.start();
-        Log.d("--------", "define async download started");
-    }
-
-
-    /**
-     * @param downloadTaskPerTime
-     */
-    public void startQueueDownload(int downloadTaskPerTime, int sortType)
-            throws QueueDownloadInProgressException {
-
-        Moderator localModerator = new Moderator(tasksDataSource, chunksDataSource);
-        List<Task> unCompletedTasks = tasksDataSource.getUnCompletedTasks(sortType);
+        List<Task> unCompletedTasks = tasksDataSource.getUnCompletedTasks(QueueSort.OLDEST_FIRST);
 
         if (qt == null) {
             qt = new QueueModerator(tasksDataSource, chunksDataSource,
-                    localModerator, downloadManagerListener, unCompletedTasks, downloadTaskPerTime);
+                    moderator, downloadManagerListener, unCompletedTasks, downloadTaskPerTime);
             qt.startQueue();
 
         } else {
@@ -176,24 +113,7 @@ public class DownloadManagerPro {
         return qt != null;
     }
 
-    /**
-     * <p>
-     * pause separate download task
-     * </p>
-     *
-     * @param token
-     */
-    public void pauseDownload(int token) {
-        moderator.pause(token);
-    }
-
-    /**
-     * pause queue download
-     *
-     * @throws com.golshadi.majid.report.exceptions.QueueDownloadNotStartedException
-     */
-    public void pauseQueueDownload()
-            throws QueueDownloadNotStartedException {
+    public void pauseQueueDownload() {
 
         if (qt != null) {
             qt.pause();
@@ -258,7 +178,7 @@ public class DownloadManagerPro {
      * @return
      */
     public List<ReportStructure> lastCompletedDownloads() {
-        List<ReportStructure> reportList = new ArrayList<ReportStructure>();
+        List<ReportStructure> reportList;
         List<Task> lastCompleted = tasksDataSource.getUnnotifiedCompleted();
 
         reportList = readyTaskList(lastCompleted);
@@ -268,7 +188,7 @@ public class DownloadManagerPro {
 
 
     private List<ReportStructure> readyTaskList(List<Task> tasks) {
-        List<ReportStructure> reportList = new ArrayList<ReportStructure>();
+        List<ReportStructure> reportList = new ArrayList<>();
 
         for (Task task : tasks) {
             List<Chunk> taskChunks = chunksDataSource.chunksRelatedTask(task.id);
@@ -345,7 +265,7 @@ public class DownloadManagerPro {
 
 
     private List<Task> uncompleted() {
-        return tasksDataSource.getUnCompletedTasks(QueueSort.oldestFirst);
+        return tasksDataSource.getUnCompletedTasks(QueueSort.OLDEST_FIRST);
     }
 
     private int insertNewTask(String taskName, String url, int chunk, String save_address, boolean priority) {

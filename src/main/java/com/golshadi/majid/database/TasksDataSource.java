@@ -105,7 +105,7 @@ public class TasksDataSource {
             case QueueSort.LowPriority:
                 query += " AND "+TASKS.COLUMN_PRIORITY+"="+SqlString.Int(0);
                 break;
-            case QueueSort.oldestFirst:
+            case QueueSort.OLDEST_FIRST:
                 query += " ORDER BY "+TASKS.COLUMN_ID+" ASC";
                 break;
             case QueueSort.earlierFirst:

@@ -10,6 +10,6 @@ public class QueueSort {
     public final static int HighToLowPriority = 2;
     public final static int LowToHighPriority = 3;
     public final static int earlierFirst = 4;
-    public final static int oldestFirst = 5;
+    public final static int OLDEST_FIRST = 5;
 
 }
