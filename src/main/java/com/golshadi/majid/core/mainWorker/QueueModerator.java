@@ -77,7 +77,7 @@ public class QueueModerator
     }
 
     public int getPendingTaskCount() {
-        return uncompletedTasks.size();
+        return uncompletedTasks.size() - downloaderList.size();
     }
 
     public void wakeUp(int taskID){
@@ -91,7 +91,9 @@ public class QueueModerator
 
         for (int i = 0; i < downloaderList.size(); i++) {
             int id = downloaderList.keyAt(i);
-            moderator.pause(id);
+            Task task = moderator.pause(id);
+            // update task state
+            uncompletedTasks.put(id, task);
         }
         downloaderList.clear();
     }

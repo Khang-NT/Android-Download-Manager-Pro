@@ -5,7 +5,6 @@ import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
-import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.net.wifi.WifiManager;
 import android.os.Handler;
@@ -17,9 +16,12 @@ import android.os.Parcel;
 import android.os.Parcelable;
 import android.support.v4.app.NotificationCompat;
 import android.support.v4.app.NotificationManagerCompat;
+import android.view.View;
+import android.widget.RemoteViews;
 
 import com.golshadi.majid.core.DownloadManagerPro;
 import com.golshadi.majid.core.mainWorker.QueueModerator;
+import com.golshadi.majid.report.listener.DownloadSpeedListener;
 
 /**
  * Created by Khang NT on 1/24/17.
@@ -39,6 +41,7 @@ public class DownloadManagerService extends Service {
     public static final String ACTION_PAUSE_QUEUE = "download.manager.pause.queue";
     public static final String ACTION_REMOVE_TASK = "download.manager.remove.task";
     public static final String ACTION_ADD_TASK = "download.manager.add.task";
+    public static final String ACTION_START_DOWNLOAD_MANAGER_ACTIVITY = "download.manager.open.activity";
     private HandlerThread handlerThread;
 
     public static DownloadManagerService getService(IBinder binder) {
@@ -151,6 +154,7 @@ public class DownloadManagerService extends Service {
         super.onDestroy();
         looper.quit();
         handlerThread.interrupt();
+        downloadManagerPro.dispose();
     }
 
     public static class TaskInfo implements Parcelable {
@@ -203,31 +207,22 @@ public class DownloadManagerService extends Service {
         }
     }
 
-    private class HandlerCallback implements Handler.Callback {
+    private class HandlerCallback implements Handler.Callback, DownloadSpeedListener {
         private final int PENDING_INTENT_REQUEST_CODE = 1;
 
         private final NotificationManagerCompat notificationManager;
-        private final String appName;
         private final PendingIntent pauseQueuePendingIntent;
         private final PendingIntent startQueuePendingIntent;
+        private final RemoteViews remoteViews;
         private final NotificationCompat.Builder builder;
         private int lastDownloadingCount;
         private int lastPendingTaskCount;
+        private long speed;
 
         public HandlerCallback() {
             notificationManager = NotificationManagerCompat.from(DownloadManagerService.this);
             lastDownloadingCount = -1;
             lastPendingTaskCount = -1;
-
-            PackageManager packageManager = getPackageManager();
-            ApplicationInfo applicationInfo;
-            try {
-                applicationInfo = packageManager.getApplicationInfo(getApplicationInfo().packageName, 0);
-            } catch (final PackageManager.NameNotFoundException e) {
-                throw new RuntimeException(e);
-            }
-            this.appName = String.valueOf(packageManager.getApplicationLabel(applicationInfo));
-
 
             Intent startQueueIntent = new Intent(DownloadManagerService.this, DownloadManagerService.class);
             startQueueIntent.setAction(ACTION_START_QUEUE);
@@ -239,11 +234,24 @@ public class DownloadManagerService extends Service {
             pauseQueuePendingIntent = PendingIntent.getService(DownloadManagerService.this,
                     PENDING_INTENT_REQUEST_CODE, pauseQueueIntent, PendingIntent.FLAG_UPDATE_CURRENT);
 
+            remoteViews = new RemoteViews(getPackageName(), R.layout.notification_download_manager);
 
             builder = new NotificationCompat.Builder(DownloadManagerService.this)
-                    .setContentTitle("Download manager")
                     .setSmallIcon(R.drawable.notification_downloader_icon)
-                    .setAutoCancel(false);
+                    .setContent(remoteViews)
+                    .setAutoCancel(false)
+                    .setTicker("Start download...");
+
+            Intent intent = new Intent(ACTION_START_DOWNLOAD_MANAGER_ACTIVITY);
+            intent.setPackage(getPackageName());
+            if (getPackageManager().queryIntentActivities(intent, PackageManager.MATCH_DEFAULT_ONLY).size() > 0) {
+                PendingIntent contentIntent = PendingIntent.getActivity(DownloadManagerService.this,
+                        PENDING_INTENT_REQUEST_CODE, intent, PendingIntent.FLAG_UPDATE_CURRENT);
+                builder.setContentIntent(contentIntent);
+            }
+
+            this.speed = 0;
+            downloadManagerPro.setDownloadSpeedListener(this);
         }
 
         @Override
@@ -251,15 +259,18 @@ public class DownloadManagerService extends Service {
             QueueModerator queue = downloadManagerPro.getQueueModerator();
             int downloadingCount = queue.getDownloadingCount();
             int pendingTaskCount = queue.getPendingTaskCount();
-            builder.setContentText("Downloading: " + downloadingCount + ". Pending: " + pendingTaskCount);
+            String title = "Download manager " + getSpeedAsString(speed);
+            String status = downloadingCount + " downloading. Pending: " + pendingTaskCount;
 
             if (downloadManagerPro.isQueueStarted()) {
 
                 if (downloadingCount != lastDownloadingCount || pendingTaskCount != lastPendingTaskCount) {
-//                    builder.setOngoing(true);
-                    builder.setAutoCancel(false);
-                    builder.mActions.clear();
-                    builder.addAction(R.drawable.ic_pause_queue, "Pause all", pauseQueuePendingIntent);
+                    remoteViews.setTextViewText(R.id.title, title);
+                    remoteViews.setTextViewText(R.id.status, status);
+                    remoteViews.setOnClickPendingIntent(R.id.action, pauseQueuePendingIntent);
+                    remoteViews.setImageViewResource(R.id.action, R.drawable.ic_pause_queue);
+                    remoteViews.setViewVisibility(R.id.action, View.VISIBLE);
+
                     startForeground(DOWNLOAD_MANAGER_NOTIFICATION_ID, builder.build());
                 }
 
@@ -282,13 +293,16 @@ public class DownloadManagerService extends Service {
                 }
 
                 if (lastPendingTaskCount != pendingTaskCount && isNotificationActive()) {
-                    builder.setOngoing(false);
-                    builder.setAutoCancel(true);
-                    builder.mActions.clear();
-                    builder.addAction(R.drawable.ic_start_queue, "Start queue", startQueuePendingIntent);
-                    notificationManager.notify(DOWNLOAD_MANAGER_NOTIFICATION_ID, builder.build());
+                    remoteViews.setTextViewText(R.id.title, title);
+                    remoteViews.setTextViewText(R.id.status, status);
+                    remoteViews.setOnClickPendingIntent(R.id.action, startQueuePendingIntent);
+                    remoteViews.setImageViewResource(R.id.action, R.drawable.ic_start_queue);
 
-//                    notificationManager.notify();
+                    if (pendingTaskCount == 0)
+                        remoteViews.setViewVisibility(R.id.action, View.INVISIBLE);
+
+                    builder.setOngoing(false);
+                    notificationManager.notify(DOWNLOAD_MANAGER_NOTIFICATION_ID, builder.build());
 
                     lastPendingTaskCount = pendingTaskCount;
                 }
@@ -308,6 +322,29 @@ public class DownloadManagerService extends Service {
             PendingIntent test2 = PendingIntent.getService(DownloadManagerService.this,
                     PENDING_INTENT_REQUEST_CODE, intent, PendingIntent.FLAG_NO_CREATE);
             return test != null && test2 != null;
+        }
+
+        @Override
+        public void onSpeedChanged(long bytesPerSec) {
+            speed = bytesPerSec;
+            String title = "Download manager " + getSpeedAsString(speed);
+            remoteViews.setTextViewText(R.id.title, title);
+            notificationManager.notify(DOWNLOAD_MANAGER_NOTIFICATION_ID, builder.build());
+        }
+
+        private String getSpeedAsString(long speed) {
+            if (speed == 0) return "";
+
+            if (speed < 1024)
+                return ". " + speed + "  B/s";
+            speed /= 1024;
+            if (speed < 1024)
+                return ". " + speed + " KB/s";
+            speed /= 1024;
+            if (speed < 1024)
+                return ". " + speed + " MB/s";
+            speed /= 1024;
+            return ". " + speed + " GB/s";
         }
     }
 }

@@ -34,7 +34,7 @@ public class TasksDataSource {
 
     public boolean update(Task task) {
         int affectedRow = database
-                .update(TABLES.TASKS, task.convertToContentValues(), TASKS.COLUMN_ID + "=" + task.id, null);
+                .update(TABLES.TASKS, task.convertToContentValues(), TASKS.COLUMN_ID + " = " + task.id, null);
 
         if (affectedRow != 0)
             return true;
@@ -143,7 +143,7 @@ public class TasksDataSource {
     }
 
     public Task getTaskInfo(int id) {
-        String query = "SELECT * FROM " + TABLES.TASKS + " WHERE " + TASKS.COLUMN_ID + "=" + SqlString.Int(id);
+        String query = "SELECT * FROM " + TABLES.TASKS + " WHERE " + TASKS.COLUMN_ID + " == " + SqlString.Int(id);
         Cursor cr = database.rawQuery(query, null);
 
         Task task = new Task();

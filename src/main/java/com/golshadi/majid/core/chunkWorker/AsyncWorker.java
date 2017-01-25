@@ -80,6 +80,7 @@ public class AsyncWorker extends Thread {
                     watchDog.reset();
                     chunkFile.write(buffer, 0, len);
                     process(len);
+                    observer.countBytesDownloaded(len);
                 }
 
                 chunkFile.flush();
@@ -131,7 +132,7 @@ public class AsyncWorker extends Thread {
         if (flag) {
             watchDog.interrupt();
             flag = false;
-            observer.connectionLost(task.id);
+            observer.error(task.id, "Connection timeout");
             pauseRelatedTask();
         }
 

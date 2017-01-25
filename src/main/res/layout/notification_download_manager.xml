@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+                xmlns:tools="http://schemas.android.com/tools"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@android:color/transparent"
+                android:paddingBottom="16dp"
+                android:paddingTop="16dp">
+
+    <ImageView
+        android:id="@+id/icon"
+        android:layout_width="20dp"
+        android:layout_height="20dp"
+        android:layout_marginLeft="16dp"
+        android:layout_marginStart="16dp"
+        android:src="@drawable/notification_downloader_icon"/>
+
+    <TextView
+        android:id="@+id/title"
+        android:layout_width="match_parent"
+        android:layout_height="20dp"
+        android:layout_alignBaseline="@+id/icon"
+        android:layout_marginLeft="3dp"
+        android:layout_marginStart="3dp"
+        android:layout_toEndOf="@+id/icon"
+        android:layout_toLeftOf="@+id/action"
+        android:layout_toRightOf="@+id/icon"
+        android:layout_toStartOf="@+id/action"
+        android:gravity="center_vertical"
+        android:textColor="#000000"
+        android:textSize="14sp"
+        tools:text="Download Manager [1231 KB/s]"/>
+
+    <TextView
+        android:id="@+id/status"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_below="@+id/icon"
+        android:layout_marginLeft="16dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="3dp"
+        android:layout_toLeftOf="@+id/action"
+        android:layout_toStartOf="@+id/action"
+        android:textSize="14sp"
+        tools:text="3 downloading. Pending: 5"/>
+
+    <ImageView
+        android:id="@+id/action"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentEnd="true"
+        android:layout_alignParentRight="true"
+        android:layout_centerVertical="true"
+        android:layout_marginEnd="16dp"
+        android:layout_marginRight="16dp"
+        android:background="@drawable/selectable_color_state"
+        android:minHeight="0dp"
+        android:minWidth="0dp"
+        android:padding="5dp"
+        android:src="@drawable/ic_start_queue"
+        />
+</RelativeLayout>

@@ -18,6 +18,7 @@ import com.golshadi.majid.database.elements.Task;
 import com.golshadi.majid.report.ReportStructure;
 import com.golshadi.majid.report.listener.DownloadManagerListener;
 import com.golshadi.majid.report.listener.DownloadManagerListenerModerator;
+import com.golshadi.majid.report.listener.DownloadSpeedListener;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -121,6 +122,10 @@ public class DownloadManagerPro {
 
     public void setDownloadManagerListener(DownloadManagerListener listener) {
         downloadManagerListener.setDownloadManagerListener(listener);
+    }
+
+    public void setDownloadSpeedListener(DownloadSpeedListener listener) {
+        downloadManagerListener.setDownloadSpeedListener(listener);
     }
 
     public void removeTask(int taskId) {
@@ -267,7 +272,10 @@ public class DownloadManagerPro {
      * you have to call this method to disconnect from db
      */
     public void dispose() {
+        pauseQueueDownload();
         dbHelper.close();
+        downloadManagerListener.setDownloadManagerListener(null);
+        downloadManagerListener.setDownloadSpeedListener(null);
     }
 
 

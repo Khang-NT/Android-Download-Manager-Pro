@@ -31,11 +31,13 @@ public class Rebuilder extends Thread{
 
         File file = FileUtils.create(task.save_address, task.name + "." + task.extension);
 
-        FileOutputStream finalFile = null;
+        FileOutputStream finalFile;
         try {
             finalFile = new FileOutputStream(file, true);
         } catch (FileNotFoundException e) {
             e.printStackTrace();
+            observer.error(task.id, "Can't create output file: " + file);
+            return;
         }
 
         byte[] readBuffer = new byte[1024];

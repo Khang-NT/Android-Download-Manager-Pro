@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="download_manager_service_label">Download manager service</string>
+    <string name="notification_title">Download manager</string>
 </resources>

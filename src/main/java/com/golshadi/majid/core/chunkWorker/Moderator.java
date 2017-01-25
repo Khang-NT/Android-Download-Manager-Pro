@@ -1,6 +1,7 @@
 package com.golshadi.majid.core.chunkWorker;
 
 
+import android.util.Log;
 import android.util.SparseArray;
 
 import com.golshadi.majid.Utils.helper.FileUtils;
@@ -26,6 +27,7 @@ import java.util.List;
 
 public class Moderator {
 
+    public static final String TAG = "Moderator";
     private ChunksDataSource chunksDataSource;  // query on chunk table
     private TasksDataSource tasksDataSource;    // query on task table
     DownloadManagerListenerModerator downloadManagerListener;
@@ -102,8 +104,8 @@ public class Moderator {
     /*
      * pause all chunk thread related to one Task
      */
-    public void pause(int taskID){
-
+    public Task pause(int taskID){
+        Log.d(TAG, "pause() called with: taskID = [" + taskID + "]");
         Task task = tasksDataSource.getTaskInfo(taskID);
 
         if (task != null && task.state != TaskStates.PAUSED && task.state != TaskStates.ERROR) {
@@ -132,6 +134,7 @@ public class Moderator {
             downloadManagerListener.OnDownloadPaused(task.id);
             
         }
+        return task;
     }
 
     public void connectionLost(int taskId) {
@@ -242,5 +245,9 @@ public class Moderator {
         if (finishedDownloadQueueObserver != null) {
             finishedDownloadQueueObserver.wakeUp(taskId);
         }
+    }
+
+    public void countBytesDownloaded(long bytes) {
+        downloadManagerListener.countBytesDownloaded(bytes);
     }
 }
