@@ -37,6 +37,7 @@ public class DownloadManagerService extends Service {
     public static final String TASK_INFO_KEY = "task_info_key";
     public static final String TASK_ID_KEY = "task_id";
 
+    public static final String ACTION_START = "download.manager.action.start";
     public static final String ACTION_START_QUEUE = "download.manager.start.queue";
     public static final String ACTION_PAUSE_QUEUE = "download.manager.pause.queue";
     public static final String ACTION_REMOVE_TASK = "download.manager.remove.task";

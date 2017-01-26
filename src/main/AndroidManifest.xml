@@ -7,6 +7,7 @@
         <service android:name=".DownloadManagerService"
             android:label="@string/download_manager_service_label">
             <intent-filter>
+                <action android:name="download.manager.action.start"/>
                 <action android:name="download.manager.start.queue"/>
                 <action android:name="download.manager.pause.queue"/>
                 <action android:name="download.manager.remove.task"/>
