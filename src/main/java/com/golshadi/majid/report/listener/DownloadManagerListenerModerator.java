@@ -166,7 +166,6 @@ public class DownloadManagerListenerModerator implements Consumer<Long> {
     @Override
     public void accept(Long aLong) throws Exception {
         long tmp = accumulateByteDownloaded * 1000 / TIMER_INTERVAL;
-        Log.d(TAG, "speed: " + tmp);
         accumulateByteDownloaded = 0;
         synchronized (context) {
             final DownloadSpeedListener listener = downloadSpeedListener == null ? null : downloadSpeedListener.get();
