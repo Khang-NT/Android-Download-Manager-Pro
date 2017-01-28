@@ -17,7 +17,6 @@ public class TASKS {
     public final static String COLUMN_NOTIFY    = "notify";
     public final static String COLUMN_RESUMABLE = "resumable";
     public final static String COLUMN_SAVE_ADDRESS = "save_address";
-    public final static String COLUMN_EXTENSION = "extension";
     public final static String COLUMN_PRIORITY  = "priority";
     public final static String COLUMN_EXTRA_JSON = "extra_json";
     public final static String COLUMN_ERROR_MESSAGE = "error_message";

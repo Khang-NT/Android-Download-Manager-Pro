@@ -7,10 +7,9 @@ import com.golshadi.majid.core.enums.TaskStates;
 import com.golshadi.majid.database.elements.Chunk;
 import com.golshadi.majid.database.elements.Task;
 
-import org.json.JSONException;
-import org.json.JSONObject;
-
 import java.util.List;
+
+import io.reactivex.subjects.PublishSubject;
 
 /**
  * Created by Majid Golshadi on 4/10/2014.
@@ -18,22 +17,30 @@ import java.util.List;
 public class ReportStructure {
 
     public int id;
-    public String name;
+    public String fileName;
     public int state;
     public String url;
     public long fileSize;
     public boolean resumable;
-    public String type;
     public int chunks;
     public double percent;
-    public long downloadLength;
-    public String saveAddress;
+    public long downloadedLength;
+    public String folder;
     public boolean priority;
     public @Nullable String jsonExtra;
     public @Nullable String errorMessage;
+    public final PublishSubject<ReportStructure> downloadProgressObservable;
 
-    public long setDownloadLength(long downloadedLength) {
-        return downloadLength += downloadedLength;
+
+    public ReportStructure() {
+        downloadProgressObservable = PublishSubject.create();
+    }
+
+    public long increaseDownloadedLength(long n) {
+        downloadProgressObservable.onNext(this);
+        downloadedLength += n;
+        this.percent = this.fileSize > 0 ? downloadedLength / fileSize : 0;
+        return downloadedLength;
     }
 
     public long getTotalSize() {
@@ -46,19 +53,18 @@ public class ReportStructure {
 
     public ReportStructure setObjectValues(Task task, List<Chunk> taskChunks) {
         this.id = task.id;
-        this.name = task.name;
+        this.fileName = task.name;
         this.state = task.state;
         this.resumable = task.resumable;
         this.url = task.url;
         this.fileSize = task.size;
-        this.type = task.extension;
         this.chunks = task.chunks;
         this.priority = task.priority;
-        this.saveAddress = task.save_address + "/" + task.name + "." + task.extension;
+        this.folder = task.save_address;
         this.jsonExtra = task.jsonExtra;
         this.errorMessage = task.errorMessage;
 
-        this.percent = calculatePercent(task, taskChunks);
+        calculatePercent(task, taskChunks);
 
         return this;
     }
@@ -70,49 +76,24 @@ public class ReportStructure {
     /**
      * calculate download percent from compare chunks size with real file size
      **/
-    private double calculatePercent(Task task, List<Chunk> chunks) {
+    private void calculatePercent(Task task, List<Chunk> chunks) {
         // initialize report
-        double report = 0;
+        this.percent = 0;
+        this.downloadedLength = 0;
 
         // if download not completed we have chunks
         if (task.state != TaskStates.DOWNLOAD_FINISHED) {
-            int sum = 0;
             for (Chunk chunk : chunks) {
-                this.downloadLength += FileUtils.size(task.save_address, String.valueOf(chunk.id));
+                this.downloadedLength += FileUtils.size(task.save_address, String.valueOf(chunk.id));
             }
 
             if (task.size > 0) {
-                report = ((float) downloadLength / task.size * 100);
+                this.percent = ((float) downloadedLength / task.size * 100);
             }
         } else {
-            this.downloadLength = task.size;
-            report = 100;
+            this.downloadedLength = task.size;
+            this.percent = 100;
         }
-
-        return report;
     }
 
-
-    public JSONObject toJsonObject() {
-        JSONObject json = new JSONObject();
-        try {
-            return json.put("token", String.valueOf(id))
-                    .put("name", name)
-                    .put("state", state)
-                    .put("resumable", resumable)
-                    .put("fileSize", fileSize)
-                    .put("url", url)
-                    .put("type", type)
-                    .put("chunks", chunks)
-                    .put("percent", percent)
-                    .put("downloadLength", downloadLength)
-                    .put("saveAddress", saveAddress)
-                    .put("priority", priority);
-
-        } catch (JSONException e) {
-            e.printStackTrace();
-        }
-
-        return json;
-    }
 }

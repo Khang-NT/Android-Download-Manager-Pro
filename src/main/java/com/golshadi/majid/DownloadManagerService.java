@@ -49,7 +49,7 @@ public class DownloadManagerService extends Service {
         if (binder instanceof Binder) {
             return ((Binder) binder).getService();
         }
-        return null;
+        throw new IllegalArgumentException("Invalid binder");
     }
 
     private class Binder extends android.os.Binder {
@@ -208,7 +208,7 @@ public class DownloadManagerService extends Service {
         }
     }
 
-    private class HandlerCallback implements Handler.Callback, DownloadSpeedListener {
+    private class HandlerCallback implements Handler.Callback, DownloadSpeedListener, QueueModerator.OnQueueChanged {
         private final int PENDING_INTENT_REQUEST_CODE = 1;
 
         private final NotificationManagerCompat notificationManager;
@@ -216,14 +216,10 @@ public class DownloadManagerService extends Service {
         private final PendingIntent startQueuePendingIntent;
         private final RemoteViews remoteViews;
         private final NotificationCompat.Builder builder;
-        private int lastDownloadingCount;
-        private int lastPendingTaskCount;
         private long speed;
 
         public HandlerCallback() {
             notificationManager = NotificationManagerCompat.from(DownloadManagerService.this);
-            lastDownloadingCount = -1;
-            lastPendingTaskCount = -1;
 
             Intent startQueueIntent = new Intent(DownloadManagerService.this, DownloadManagerService.class);
             startQueueIntent.setAction(ACTION_START_QUEUE);
@@ -253,63 +249,17 @@ public class DownloadManagerService extends Service {
 
             this.speed = 0;
             downloadManagerPro.setDownloadSpeedListener(this);
+            downloadManagerPro.getQueueModerator().addOnQueueChangedListener(this);
+
+            if (isNotificationActive()) {
+                onQueueChanged(downloadManagerPro.getQueueModerator().getDownloadingCount(),
+                        downloadManagerPro.getQueueModerator().getPendingTaskCount());
+                onSpeedChanged(speed);
+            }
         }
 
         @Override
         public boolean handleMessage(Message msg) {
-            QueueModerator queue = downloadManagerPro.getQueueModerator();
-            int downloadingCount = queue.getDownloadingCount();
-            int pendingTaskCount = queue.getPendingTaskCount();
-            String title = "Download manager " + getSpeedAsString(speed);
-            String status = downloadingCount + " downloading. Pending: " + pendingTaskCount;
-
-            if (downloadManagerPro.isQueueStarted()) {
-
-                if (downloadingCount != lastDownloadingCount || pendingTaskCount != lastPendingTaskCount) {
-                    remoteViews.setTextViewText(R.id.title, title);
-                    remoteViews.setTextViewText(R.id.status, status);
-                    remoteViews.setOnClickPendingIntent(R.id.action, pauseQueuePendingIntent);
-                    remoteViews.setImageViewResource(R.id.action, R.drawable.ic_pause_queue);
-                    remoteViews.setViewVisibility(R.id.action, View.VISIBLE);
-
-                    startForeground(DOWNLOAD_MANAGER_NOTIFICATION_ID, builder.build());
-                }
-
-                lastDownloadingCount = downloadingCount;
-                lastPendingTaskCount = pendingTaskCount;
-            } else {
-                /**
-                 * If previous state is Downloading, call pause queue to release wifi lock then
-                 *      If is foreground: stop foreground
-                 *
-                 * If notification is active, update pending count
-                 */
-                if (lastDownloadingCount != -1) {
-                    pauseQueue();
-                    stopForeground(false);
-
-                    lastDownloadingCount = -1;
-                    // force update notification
-                    lastPendingTaskCount = -1;
-                }
-
-                if (lastPendingTaskCount != pendingTaskCount && isNotificationActive()) {
-                    remoteViews.setTextViewText(R.id.title, title);
-                    remoteViews.setTextViewText(R.id.status, status);
-                    remoteViews.setOnClickPendingIntent(R.id.action, startQueuePendingIntent);
-                    remoteViews.setImageViewResource(R.id.action, R.drawable.ic_start_queue);
-
-                    if (pendingTaskCount == 0)
-                        remoteViews.setViewVisibility(R.id.action, View.INVISIBLE);
-
-                    builder.setOngoing(false);
-                    notificationManager.notify(DOWNLOAD_MANAGER_NOTIFICATION_ID, builder.build());
-
-                    lastPendingTaskCount = pendingTaskCount;
-                }
-            }
-
-            handler.sendEmptyMessageDelayed(0, 1000);
             return true;
         }
 
@@ -331,6 +281,38 @@ public class DownloadManagerService extends Service {
             String title = "Download manager " + getSpeedAsString(speed);
             remoteViews.setTextViewText(R.id.title, title);
             notificationManager.notify(DOWNLOAD_MANAGER_NOTIFICATION_ID, builder.build());
+        }
+
+        @Override
+        public synchronized void onQueueChanged(int downloadingCount, int pendingTaskCount) {
+            String status = downloadingCount + " downloading. Pending: " + pendingTaskCount;
+            String title = "Download manager " + getSpeedAsString(speed);
+
+            if (downloadingCount != 0) {
+                remoteViews.setTextViewText(R.id.status, status);
+                remoteViews.setTextViewText(R.id.title, title);
+                remoteViews.setOnClickPendingIntent(R.id.action, pauseQueuePendingIntent);
+                remoteViews.setImageViewResource(R.id.action, R.drawable.ic_pause_queue);
+                remoteViews.setViewVisibility(R.id.action, View.VISIBLE);
+
+                startForeground(DOWNLOAD_MANAGER_NOTIFICATION_ID, builder.build());
+            } else {
+                pauseQueue();
+                stopForeground(false);
+
+                if (isNotificationActive()) {
+                    remoteViews.setTextViewText(R.id.status, status);
+                    remoteViews.setOnClickPendingIntent(R.id.action, startQueuePendingIntent);
+                    remoteViews.setImageViewResource(R.id.action, R.drawable.ic_start_queue);
+
+                    if (pendingTaskCount == 0)
+                        remoteViews.setViewVisibility(R.id.action, View.INVISIBLE);
+
+                    builder.setOngoing(false);
+                    notificationManager.notify(DOWNLOAD_MANAGER_NOTIFICATION_ID, builder.build());
+
+                }
+            }
         }
 
         private String getSpeedAsString(long speed) {

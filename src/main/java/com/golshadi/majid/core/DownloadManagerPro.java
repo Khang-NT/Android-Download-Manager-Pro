@@ -4,6 +4,7 @@ import android.content.Context;
 import android.os.Environment;
 import android.support.annotation.Nullable;
 import android.util.Log;
+import android.util.SparseArray;
 
 import com.golshadi.majid.Utils.helper.FileUtils;
 import com.golshadi.majid.core.chunkWorker.Moderator;
@@ -128,13 +129,21 @@ public class DownloadManagerPro {
         downloadManagerListener.setDownloadSpeedListener(listener);
     }
 
-    public void removeTask(int taskId) {
-        moderator.pause(taskId);
-        List<Chunk> chunks = chunksDataSource.chunksRelatedTask(taskId);
-        tasksDataSource.delete(taskId);
-    }
-
     //-----------Reports
+
+
+    public List<ReportStructure> queueStatusReport(boolean downloading) {
+        List<ReportStructure> result = new ArrayList<>();
+        SparseArray<Task> uncompletedTasks = queue.getUncompletedTasks();
+        for (int i = 0; i < uncompletedTasks.size(); i++) {
+            int taskId = uncompletedTasks.keyAt(i);
+            if (queue.isDownloading(taskId) == downloading) {
+                ReportStructure rs = singleDownloadStatus(taskId);
+                result.add(rs);
+            }
+        }
+        return result;
+    }
 
     /**
      * report task download status in "ReportStructure" style
@@ -142,17 +151,18 @@ public class DownloadManagerPro {
      * @param token when you add a new download task it's return to you
      * @return
      */
+    @Nullable
     public ReportStructure singleDownloadStatus(int token) {
-        ReportStructure report = new ReportStructure();
-        Task task = tasksDataSource.getTaskInfo(token);
-        if (task != null) {
-            List<Chunk> taskChunks = chunksDataSource.chunksRelatedTask(task.id);
-            report.setObjectValues(task, taskChunks);
-
-            return report;
+        ReportStructure report = moderator.getReport(token);
+        if (report == null) {
+            Task task = tasksDataSource.getTaskInfo(token);
+            if (task != null) {
+                report = new ReportStructure();
+                List<Chunk> taskChunks = chunksDataSource.chunksRelatedTask(task.id);
+                report.setObjectValues(task, taskChunks);
+            }
         }
-
-        return null;
+        return report;
     }
 
 
@@ -173,12 +183,8 @@ public class DownloadManagerPro {
      * @return
      */
     public List<ReportStructure> downloadTasksInSameState(int state) {
-        List<ReportStructure> reportList;
         List<Task> inStateTasks = tasksDataSource.getTasksInState(state);
-
-        reportList = readyTaskList(inStateTasks);
-
-        return reportList;
+        return readyTaskList(inStateTasks);
     }
 
 
@@ -243,6 +249,7 @@ public class DownloadManagerPro {
      */
     public boolean delete(int token, boolean deleteTaskFile) {
         moderator.pause(token);
+        queue.removeTask(token);
         Task task = tasksDataSource.getTaskInfo(token);
         if (task.url != null) {
             List<Chunk> taskChunks =
@@ -253,9 +260,9 @@ public class DownloadManagerPro {
             }
 
             if (deleteTaskFile) {
-                long size = FileUtils.size(task.save_address, task.name + "." + task.extension);
+                long size = FileUtils.size(task.save_address, task.name);
                 if (size > 0) {
-                    FileUtils.delete(task.save_address, task.name + "." + task.extension);
+                    FileUtils.delete(task.save_address, task.name);
                 }
             }
 
@@ -330,7 +337,7 @@ public class DownloadManagerPro {
         if (isDuplicatedName(saveName)) {
             Task task = tasksDataSource.getTaskInfoWithName(saveName);
             tasksDataSource.delete(task.id);
-            FileUtils.delete(task.save_address, task.name + "." + task.extension);
+            FileUtils.delete(task.save_address, task.name);
         }
     }
 }

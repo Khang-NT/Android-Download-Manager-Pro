@@ -29,7 +29,7 @@ public class Rebuilder extends Thread{
         // notify to developer------------------------------------------------------------
         observer.downloadManagerListener.OnDownloadRebuildStart(task.id);
 
-        File file = FileUtils.create(task.save_address, task.name + "." + task.extension);
+        File file = FileUtils.create(task.save_address, task.name);
 
         FileOutputStream finalFile;
         try {

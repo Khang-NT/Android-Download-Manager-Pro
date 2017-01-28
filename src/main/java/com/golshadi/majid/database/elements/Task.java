@@ -34,7 +34,6 @@ public class Task {
     public boolean notify;
     public boolean resumable;
     public String save_address;
-    public String extension;
     public boolean priority;
     public @Nullable String jsonExtra;
     public @Nullable String errorMessage;
@@ -50,7 +49,6 @@ public class Task {
         this.notify = true;
         this.resumable = true;
         this.save_address = null;
-        this.extension = null;
         this.priority = false;  // low priority
         this.jsonExtra = null;
     }
@@ -68,7 +66,6 @@ public class Task {
         this.notify = true;
         this.resumable = true;
         this.save_address = sdCardFolderAddress;
-        this.extension = "";
         this.priority = priority;
         this.jsonExtra = jsonExtra;
     }
@@ -93,7 +90,6 @@ public class Task {
         contentValues.put(TASKS.COLUMN_NOTIFY, notify);
         contentValues.put(TASKS.COLUMN_RESUMABLE, resumable);
         contentValues.put(TASKS.COLUMN_SAVE_ADDRESS, save_address);
-        contentValues.put(TASKS.COLUMN_EXTENSION, extension);
         contentValues.put(TASKS.COLUMN_PRIORITY, priority);
         contentValues.put(TASKS.COLUMN_EXTRA_JSON, jsonExtra);
 
@@ -121,8 +117,6 @@ public class Task {
                 cr.getColumnIndex(TASKS.COLUMN_RESUMABLE)) > 0;
         save_address = cr.getString(
                 cr.getColumnIndex(TASKS.COLUMN_SAVE_ADDRESS));
-        extension = cr.getString(
-                cr.getColumnIndex(TASKS.COLUMN_EXTENSION));
         priority = cr.getInt(
                 cr.getColumnIndex(TASKS.COLUMN_PRIORITY)) > 0;
         jsonExtra = cr.getString(

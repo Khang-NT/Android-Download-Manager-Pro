@@ -1,7 +1,6 @@
 package com.golshadi.majid.core.mainWorker;
 
 import android.util.Log;
-import android.webkit.MimeTypeMap;
 
 import com.golshadi.majid.Utils.helper.FileUtils;
 import com.golshadi.majid.appConstants.DispatchEcode;
@@ -127,7 +126,7 @@ public class AsyncStartDownload extends Thread {
         }
 
         task.size = urlConnection.getContentLength();
-        task.extension = MimeTypeMap.getFileExtensionFromUrl(task.url);
+//                MimeTypeMap.getFileExtensionFromUrl(task.url);
 
         //        Log.d("-------", "anything goes right");
         return true;

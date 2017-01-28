@@ -29,7 +29,6 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                     + TASKS.COLUMN_RESUMABLE + " BOOLEAN, "
                     + TASKS.COLUMN_PRIORITY + " BOOLEAN, "
                     + TASKS.COLUMN_SAVE_ADDRESS + " VARCHAR( 256 ),"
-                    + TASKS.COLUMN_EXTENSION + " VARCHAR( 32 ),"
                     + TASKS.COLUMN_EXTRA_JSON + " TEXT, "
                     + TASKS.COLUMN_ERROR_MESSAGE + " TEXT "
                     + " ); ";

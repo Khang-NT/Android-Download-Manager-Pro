@@ -9,6 +9,8 @@ import com.golshadi.majid.database.TasksDataSource;
 import com.golshadi.majid.database.elements.Task;
 import com.golshadi.majid.report.listener.DownloadManagerListenerModerator;
 
+import java.lang.ref.WeakReference;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -16,6 +18,10 @@ import java.util.List;
  */
 public class QueueModerator   
 			implements QueueObserver {
+
+    public interface OnQueueChanged {
+        void onQueueChanged(int downloading, int pending);
+    }
 
     private final TasksDataSource tasksDataSource;
     private final ChunksDataSource chunksDataSource;
@@ -25,6 +31,7 @@ public class QueueModerator
 
     private final SparseArray<Task> uncompletedTasks;
     private final SparseArray<Thread> downloaderList;
+    private final List<WeakReference<OnQueueChanged>> listeners;
 
     public QueueModerator(TasksDataSource tasksDataSource, ChunksDataSource chunksDataSource,
                        Moderator localModerator, DownloadManagerListenerModerator downloadManagerListener,
@@ -41,7 +48,16 @@ public class QueueModerator
             uncompletedTasks.put(task.id, task);
         }
         
-        downloaderList = new SparseArray<>();
+        this.downloaderList = new SparseArray<>();
+        this.listeners = new ArrayList<>();
+    }
+
+    public void addOnQueueChangedListener(OnQueueChanged listener) {
+        for (WeakReference<OnQueueChanged> weakReference : listeners) {
+            if (weakReference.get() == listener)
+                return;
+        }
+        listeners.add(new WeakReference<>(listener));
     }
 
     public QueueModerator setDownloadTaskPerTime(int downloadTaskPerTime) {
@@ -53,11 +69,18 @@ public class QueueModerator
 
     public QueueModerator addTask(Task task) {
         this.uncompletedTasks.put(task.id, task);
+        notifyListeners();
         return this;
+    }
+
+    public void removeTask(int token) {
+        this.uncompletedTasks.remove(token);
+        notifyListeners();
     }
 
     public void startQueue() {
         int location = 0;
+        int startedTask = 0;
         while (location < uncompletedTasks.size() &&
                 downloadTaskPerTime > downloaderList.size()) {
             Task task = uncompletedTasks.get(uncompletedTasks.keyAt(location));
@@ -67,9 +90,13 @@ public class QueueModerator
 
                 downloaderList.put(task.id, downloader);
                 downloader.start();
+                startedTask ++;
             }
             location++;
         }
+
+        if (startedTask != 0)
+            notifyListeners();
     }
 
     public int getDownloadingCount() {
@@ -80,9 +107,18 @@ public class QueueModerator
         return uncompletedTasks.size() - downloaderList.size();
     }
 
+    public SparseArray<Task> getUncompletedTasks() {
+        return uncompletedTasks;
+    }
+
+    public boolean isDownloading(int taskId) {
+        return downloaderList.get(taskId) != null;
+    }
+
     public void wakeUp(int taskID){
         downloaderList.remove(taskID);
         uncompletedTasks.remove(taskID);
+        notifyListeners();
         startQueue();
     }
 
@@ -96,5 +132,16 @@ public class QueueModerator
             uncompletedTasks.put(id, task);
         }
         downloaderList.clear();
+        notifyListeners();
+    }
+
+    private void notifyListeners() {
+        int downloading = getDownloadingCount(), pending = getPendingTaskCount();
+        for (WeakReference<OnQueueChanged> weakReference : listeners) {
+            final OnQueueChanged listener = weakReference.get();
+            if (listener != null) {
+                listener.onQueueChanged(downloading, pending);
+            }
+        }
     }
 }

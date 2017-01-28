@@ -18,7 +18,7 @@ import java.util.List;
 
 /**
  * Created by Majid Golshadi on 4/14/2014.
- *
+ * <p>
  * start
  * stop
  * downloader thread hear i call them AsyncWorker because i use AsyncTask instead of thread
@@ -37,18 +37,18 @@ public class Moderator {
 
     private QueueModerator finishedDownloadQueueObserver;
 
-    public Moderator(TasksDataSource tasksDS, ChunksDataSource chunksDS){
+    public Moderator(TasksDataSource tasksDS, ChunksDataSource chunksDS) {
         tasksDataSource = tasksDS;
         chunksDataSource = chunksDS;
         workerList = new SparseArray<>(); // chunk downloader with they id key
         processReports = new SparseArray<>();
     }
 
-    public void setQueueObserver(QueueModerator queueObserver ){
+    public void setQueueObserver(QueueModerator queueObserver) {
         finishedDownloadQueueObserver = queueObserver;
     }
 
-    public void start(Task task, DownloadManagerListenerModerator listener){
+    public void start(Task task, DownloadManagerListenerModerator listener) {
         downloadManagerListener = listener;
         // fetch task chunk info
         // set task state to Downloading
@@ -66,17 +66,17 @@ public class Moderator {
         if (taskChunks != null) {
 
             // set task state to Downloading
-        	// to lock start download again!
+            // to lock start download again!
             task.state = TaskStates.DOWNLOADING;
             tasksDataSource.update(task);
-            
+
             // get any chunk file size calculate
             for (Chunk chunk : taskChunks) {
-            	
+
                 downloaded = FileUtils.size(task.save_address, String.valueOf(chunk.id));
                 totalSize = chunk.end - chunk.begin + 1;
-                
-                if (!task.resumable){
+
+                if (!task.resumable) {
                     chunk.begin = 0;
                     chunk.end = 0;
                     // start one chunk as AsyncTask (duplicate code!! :( )                    
@@ -84,7 +84,9 @@ public class Moderator {
                     workerList.put(chunk.id, chunkDownloaderThread);
                     chunkDownloaderThread.start();
 
-                }else if (downloaded != totalSize) {
+                    // sure: only one chunk for unresumable task
+                    break;
+                } else if (downloaded != totalSize) {
                     // where it has to begin
                     // modify start point but i have not save it in Database
                     chunk.begin = chunk.begin + downloaded;
@@ -92,10 +94,10 @@ public class Moderator {
                     // start any of them as AsyncTask
                     Thread chunkDownloaderThread = new AsyncWorker(task, chunk, this);
                     workerList.put(chunk.id, chunkDownloaderThread);
-                    chunkDownloaderThread.start(); 
+                    chunkDownloaderThread.start();
                 }
             }
-            
+
             // notify to developer------------------------------------------------------------
             downloadManagerListener.OnDownloadStarted(task.id);
         }
@@ -104,7 +106,7 @@ public class Moderator {
     /*
      * pause all chunk thread related to one Task
      */
-    public Task pause(int taskID){
+    public Task pause(int taskID) {
         Log.d(TAG, "pause() called with: taskID = [" + taskID + "]");
         Task task = tasksDataSource.getTaskInfo(taskID);
 
@@ -130,15 +132,14 @@ public class Moderator {
             task.state = TaskStates.PAUSED;
             tasksDataSource.update(task);
 
+            final ReportStructure rs = processReports.get(taskID);
+            rs.setObjectValues(task, taskChunks);
+
             // notify to developer------------------------------------------------------------
             downloadManagerListener.OnDownloadPaused(task.id);
-            
+
         }
         return task;
-    }
-
-    public void connectionLost(int taskId) {
-    	downloadManagerListener.ConnectionLost(taskId);
     }
 
     /*
@@ -146,20 +147,22 @@ public class Moderator {
     if download task is un resumable it return -1 as percent
      */
     private int downloadByteThreshold = 0;
-    private final int THRESHOLD = 1024*50;
+    private static final int THRESHOLD = 1024 * 50;
 
-    public void process(int taskId, long byteRead){
+    public void process(int taskId, long byteRead) {
+        downloadManagerListener.countBytesDownloaded(byteRead);
+
         ReportStructure report = processReports.get(taskId);
         double percent = -1;
         long downloadLength = report
-                                .setDownloadLength(byteRead);
+                .increaseDownloadedLength(byteRead);
 
         downloadByteThreshold += byteRead;
         if (downloadByteThreshold > THRESHOLD) {
             downloadByteThreshold = 0;
 
             if (report.isResumable()) {
-                percent = ((float)downloadLength / report.getTotalSize() * 100);
+                percent = ((float) downloadLength / report.getTotalSize() * 100);
             }
 
             // notify to developer------------------------------------------------------------
@@ -167,18 +170,18 @@ public class Moderator {
         }
     }
 
-    public void rebuild(Chunk chunk){
+    public void rebuild(Chunk chunk) {
         workerList.remove(chunk.id);
         List<Chunk> taskChunks =
                 chunksDataSource.chunksRelatedTask(chunk.task_id); // delete itself from worker list
-        
-        for (Chunk ch : taskChunks){
-            if ( workerList.get(ch.id) != null)
+
+        for (Chunk ch : taskChunks) {
+            if (workerList.get(ch.id) != null)
                 return;
         }
-        
+
         Task task = tasksDataSource.getTaskInfo(chunk.task_id);
-        
+
         // set state task state to finished
         task.state = TaskStates.DOWNLOAD_FINISHED;
         tasksDataSource.update(task);
@@ -235,9 +238,9 @@ public class Moderator {
             chunksDataSource.delete(chunk.id);
         }
 
-        long size = FileUtils.size(task.save_address, task.name + "." + task.extension);
+        long size = FileUtils.size(task.save_address, task.name);
         if (size > 0) {
-            FileUtils.delete(task.save_address, task.name + "." + task.extension);
+            FileUtils.delete(task.save_address, task.name);
         }
 
         downloadManagerListener.onDownloadError(taskId, errorMessage);
@@ -247,7 +250,7 @@ public class Moderator {
         }
     }
 
-    public void countBytesDownloaded(long bytes) {
-        downloadManagerListener.countBytesDownloaded(bytes);
+    public ReportStructure getReport(int taskId) {
+        return processReports.get(taskId);
     }
 }

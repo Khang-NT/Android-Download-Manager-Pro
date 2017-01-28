@@ -82,7 +82,7 @@ public class DownloadManagerListenerModerator implements Consumer<Long> {
     }
 
     public void onDownloadProcess(long taskId, double percent, long downloadedLength) {
-        Log.d(TAG, "onDownloadProcess() called with: taskId = [" + taskId + "], percent = [" + percent + "], downloadedLength = [" + downloadedLength + "]");
+//        Log.d(TAG, "onDownloadProcess() called with: taskId = [" + taskId + "], percent = [" + percent + "], downloadedLength = [" + downloadedLength + "]");
         DownloadManagerListener downloadManagerListener = null;
         if (downloadManagerListenerWeakReference != null)
             downloadManagerListener = downloadManagerListenerWeakReference.get();

@@ -80,7 +80,6 @@ public class AsyncWorker extends Thread {
                     watchDog.reset();
                     chunkFile.write(buffer, 0, len);
                     process(len);
-                    observer.countBytesDownloaded(len);
                 }
 
                 chunkFile.flush();
