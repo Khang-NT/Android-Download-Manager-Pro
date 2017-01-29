@@ -75,7 +75,7 @@ public class TasksDataSource {
 
         // SQLite does not have a separate Boolean storage class. Instead, Boolean values are stored as integers 0 (false) and 1 (true).
         String query = "SELECT * FROM " + TABLES.TASKS + " WHERE " + TASKS.COLUMN_NOTIFY + " != " + SqlString.Int(1)
-                + " AND (" + TASKS.COLUMN_STATE + " == " + TaskStates.DOWNLOAD_FINISHED + " OR "
+                + " AND (" + TASKS.COLUMN_STATE + " == " + TaskStates.END + " OR "
                 + TASKS.COLUMN_STATE + " == " + TaskStates.ERROR + ")";
         Cursor cr = database.rawQuery(query, null);
 
