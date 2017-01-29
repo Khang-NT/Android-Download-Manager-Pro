@@ -37,9 +37,9 @@ public class ReportStructure {
     }
 
     public long increaseDownloadedLength(long n) {
-        downloadProgressObservable.onNext(this);
         downloadedLength += n;
-        this.percent = this.fileSize > 0 ? downloadedLength / fileSize : 0;
+        this.percent = this.fileSize > 0 ? downloadedLength * 100 / fileSize : 0;
+        downloadProgressObservable.onNext(this);
         return downloadedLength;
     }
 
@@ -65,6 +65,7 @@ public class ReportStructure {
         this.errorMessage = task.errorMessage;
 
         calculatePercent(task, taskChunks);
+        downloadProgressObservable.onNext(this);
 
         return this;
     }

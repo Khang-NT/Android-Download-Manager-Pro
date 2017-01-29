@@ -22,6 +22,7 @@ import com.golshadi.majid.report.listener.DownloadManagerListenerModerator;
 import com.golshadi.majid.report.listener.DownloadSpeedListener;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -71,6 +72,8 @@ public class DownloadManagerPro {
 
         queue = new QueueModerator(tasksDataSource, chunksDataSource,
                 moderator, downloadManagerListener, unCompletedTasks, downloadTaskPerTime);
+        List<ReportStructure> reportStructures = readyTaskList(unCompletedTasks);
+        moderator.putAllReport(reportStructures);
     }
 
     /**
@@ -89,6 +92,8 @@ public class DownloadManagerPro {
      * inserted task id
      */
     public int addTask(String url, String saveName, String sdCardFolderAddress, int chunk, boolean overwrite, @Nullable String jsonExtra) {
+        if (queue.checkExistTaskWithFileName(saveName))
+            return -1;
         if (!overwrite)
             saveName = getUniqueName(saveName);
         else
@@ -97,6 +102,9 @@ public class DownloadManagerPro {
         chunk = setMaxChunk(chunk);
         String saveAddress = Environment.getExternalStorageDirectory() + "/" + sdCardFolderAddress;
         Task task = insertNewTask(saveName, url, chunk, saveAddress, true, jsonExtra);
+        ReportStructure rs = new ReportStructure();
+        rs.setObjectValues(task, Collections.emptyList());
+        moderator.putReport(rs);
         queue.addTask(task);
         return task.id;
     }

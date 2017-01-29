@@ -129,6 +129,12 @@ public class DownloadManagerService extends Service {
         downloadManagerPro.pauseQueueDownload();
     }
 
+    public void toggleQueueState() {
+        if (downloadManagerPro.isQueueStarted())
+            pauseQueue();
+        else startQueue();
+    }
+
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         if (ACTION_ADD_TASK.equals(intent.getAction())) {
@@ -212,24 +218,12 @@ public class DownloadManagerService extends Service {
         private final int PENDING_INTENT_REQUEST_CODE = 1;
 
         private final NotificationManagerCompat notificationManager;
-        private final PendingIntent pauseQueuePendingIntent;
-        private final PendingIntent startQueuePendingIntent;
         private final RemoteViews remoteViews;
         private final NotificationCompat.Builder builder;
         private long speed;
 
         public HandlerCallback() {
             notificationManager = NotificationManagerCompat.from(DownloadManagerService.this);
-
-            Intent startQueueIntent = new Intent(DownloadManagerService.this, DownloadManagerService.class);
-            startQueueIntent.setAction(ACTION_START_QUEUE);
-            startQueuePendingIntent = PendingIntent.getService(DownloadManagerService.this,
-                    PENDING_INTENT_REQUEST_CODE, startQueueIntent, PendingIntent.FLAG_UPDATE_CURRENT);
-
-            Intent pauseQueueIntent = new Intent(DownloadManagerService.this, DownloadManagerService.class);
-            pauseQueueIntent.setAction(ACTION_PAUSE_QUEUE);
-            pauseQueuePendingIntent = PendingIntent.getService(DownloadManagerService.this,
-                    PENDING_INTENT_REQUEST_CODE, pauseQueueIntent, PendingIntent.FLAG_UPDATE_CURRENT);
 
             remoteViews = new RemoteViews(getPackageName(), R.layout.notification_download_manager);
 
@@ -251,10 +245,9 @@ public class DownloadManagerService extends Service {
             downloadManagerPro.setDownloadSpeedListener(this);
             downloadManagerPro.getQueueModerator().addOnQueueChangedListener(this);
 
-            if (isNotificationActive()) {
+            if (downloadManagerPro.isQueueStarted()) {
                 onQueueChanged(downloadManagerPro.getQueueModerator().getDownloadingCount(),
                         downloadManagerPro.getQueueModerator().getPendingTaskCount());
-                onSpeedChanged(speed);
             }
         }
 
@@ -263,16 +256,18 @@ public class DownloadManagerService extends Service {
             return true;
         }
 
-        public boolean isNotificationActive() {
-            Intent intent = new Intent(DownloadManagerService.this, DownloadManagerService.class);
-            intent.setAction(ACTION_PAUSE_QUEUE);
-            PendingIntent test = PendingIntent.getService(DownloadManagerService.this,
-                    PENDING_INTENT_REQUEST_CODE, intent, PendingIntent.FLAG_NO_CREATE);
+        public PendingIntent getStartQueuePendingIntent() {
+            Intent startQueueIntent = new Intent(DownloadManagerService.this, DownloadManagerService.class);
+            startQueueIntent.setAction(ACTION_START_QUEUE);
+            return PendingIntent.getService(DownloadManagerService.this,
+                    PENDING_INTENT_REQUEST_CODE, startQueueIntent, PendingIntent.FLAG_UPDATE_CURRENT);
+        }
 
-            intent.setAction(ACTION_START_QUEUE);
-            PendingIntent test2 = PendingIntent.getService(DownloadManagerService.this,
-                    PENDING_INTENT_REQUEST_CODE, intent, PendingIntent.FLAG_NO_CREATE);
-            return test != null && test2 != null;
+        public PendingIntent getPauseQueuePendingIntent() {
+            Intent pauseQueueIntent = new Intent(DownloadManagerService.this, DownloadManagerService.class);
+            pauseQueueIntent.setAction(ACTION_PAUSE_QUEUE);
+            return PendingIntent.getService(DownloadManagerService.this,
+                    PENDING_INTENT_REQUEST_CODE, pauseQueueIntent, PendingIntent.FLAG_UPDATE_CURRENT);
         }
 
         @Override
@@ -291,7 +286,7 @@ public class DownloadManagerService extends Service {
             if (downloadingCount != 0) {
                 remoteViews.setTextViewText(R.id.status, status);
                 remoteViews.setTextViewText(R.id.title, title);
-                remoteViews.setOnClickPendingIntent(R.id.action, pauseQueuePendingIntent);
+                remoteViews.setOnClickPendingIntent(R.id.action, getPauseQueuePendingIntent());
                 remoteViews.setImageViewResource(R.id.action, R.drawable.ic_pause_queue);
                 remoteViews.setViewVisibility(R.id.action, View.VISIBLE);
 
@@ -300,18 +295,15 @@ public class DownloadManagerService extends Service {
                 pauseQueue();
                 stopForeground(false);
 
-                if (isNotificationActive()) {
-                    remoteViews.setTextViewText(R.id.status, status);
-                    remoteViews.setOnClickPendingIntent(R.id.action, startQueuePendingIntent);
-                    remoteViews.setImageViewResource(R.id.action, R.drawable.ic_start_queue);
+                remoteViews.setTextViewText(R.id.status, status);
+                remoteViews.setOnClickPendingIntent(R.id.action, getStartQueuePendingIntent());
+                remoteViews.setImageViewResource(R.id.action, R.drawable.ic_start_queue);
 
-                    if (pendingTaskCount == 0)
-                        remoteViews.setViewVisibility(R.id.action, View.INVISIBLE);
+                if (pendingTaskCount == 0)
+                    remoteViews.setViewVisibility(R.id.action, View.INVISIBLE);
 
-                    builder.setOngoing(false);
-                    notificationManager.notify(DOWNLOAD_MANAGER_NOTIFICATION_ID, builder.build());
-
-                }
+                builder.setOngoing(false);
+                notificationManager.notify(DOWNLOAD_MANAGER_NOTIFICATION_ID, builder.build());
             }
         }
 

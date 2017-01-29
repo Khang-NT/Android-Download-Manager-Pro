@@ -57,7 +57,9 @@ public class Moderator {
 
         // fetch task chunk info
         List<Chunk> taskChunks = chunksDataSource.chunksRelatedTask(task.id);
-        ReportStructure rps = new ReportStructure();
+        ReportStructure rps = processReports.get(task.id);
+        if (rps == null)
+            rps = new ReportStructure();
         rps.setObjectValues(task, taskChunks);
         processReports.put(task.id, rps);
 
@@ -133,7 +135,8 @@ public class Moderator {
             tasksDataSource.update(task);
 
             final ReportStructure rs = processReports.get(taskID);
-            rs.setObjectValues(task, taskChunks);
+            if (rs != null)
+                rs.setObjectValues(task, taskChunks);
 
             // notify to developer------------------------------------------------------------
             downloadManagerListener.OnDownloadPaused(task.id);
@@ -250,7 +253,17 @@ public class Moderator {
         }
     }
 
+    public void putReport(ReportStructure rs) {
+        processReports.put(rs.id, rs);
+    }
+
     public ReportStructure getReport(int taskId) {
         return processReports.get(taskId);
+    }
+
+    public void putAllReport(List<ReportStructure> reportStructures) {
+        for (ReportStructure reportStructure : reportStructures) {
+            processReports.put(reportStructure.id, reportStructure);
+        }
     }
 }

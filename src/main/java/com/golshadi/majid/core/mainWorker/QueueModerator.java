@@ -11,6 +11,7 @@ import com.golshadi.majid.report.listener.DownloadManagerListenerModerator;
 
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 
 /**
@@ -65,6 +66,15 @@ public class QueueModerator
             throw new IllegalArgumentException("Invalid download task per time: " + downloadTaskPerTime);
         this.downloadTaskPerTime = downloadTaskPerTime;
         return this;
+    }
+
+    public boolean checkExistTaskWithFileName(String fileName) {
+        for (int i = 0; i < uncompletedTasks.size(); i++) {
+            int key = uncompletedTasks.keyAt(i);
+            if (fileName.equals(uncompletedTasks.get(key).name))
+                return true;
+        }
+        return false;
     }
 
     public QueueModerator addTask(Task task) {
@@ -135,12 +145,21 @@ public class QueueModerator
         notifyListeners();
     }
 
-    private void notifyListeners() {
+    private synchronized void notifyListeners() {
         int downloading = getDownloadingCount(), pending = getPendingTaskCount();
         for (WeakReference<OnQueueChanged> weakReference : listeners) {
             final OnQueueChanged listener = weakReference.get();
             if (listener != null) {
                 listener.onQueueChanged(downloading, pending);
+            }
+        }
+        // clean up null reference
+        if (listeners.size() > 5) {
+            Iterator<WeakReference<OnQueueChanged>> iterator = listeners.iterator();
+            while (iterator.hasNext()) {
+                WeakReference<OnQueueChanged> weakReference = iterator.next();
+                if (weakReference.get() == null)
+                    iterator.remove();
             }
         }
     }
