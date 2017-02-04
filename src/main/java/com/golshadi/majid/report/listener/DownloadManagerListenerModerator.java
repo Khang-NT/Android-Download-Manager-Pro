@@ -5,6 +5,7 @@ import android.content.Intent;
 import android.support.annotation.Nullable;
 import android.util.Log;
 
+import com.golshadi.majid.DownloadManagerService;
 import com.golshadi.majid.core.DownloadManagerPro;
 import com.golshadi.majid.database.TasksDataSource;
 import com.golshadi.majid.database.elements.Task;
@@ -133,8 +134,7 @@ public class DownloadManagerListenerModerator implements Consumer<Long> {
 
         Task task = tasksDataSource.getTaskInfo(Long.valueOf(taskId).intValue());
         Intent intent = new Intent(DownloadManagerPro.ACTION_DOWNLOAD_COMPLETED);
-        intent.putExtra(DownloadManagerPro.EXTRA_JSON_KEY, task.jsonExtra);
-        intent.putExtra(DownloadManagerPro.TASK_ID_KEY, task.id);
+        intent.putExtra(DownloadManagerService.TASK_DATA, task);
 
         context.sendBroadcast(intent);
     }
@@ -148,16 +148,7 @@ public class DownloadManagerListenerModerator implements Consumer<Long> {
             downloadManagerListener.onDownloadError(taskId, errorMessage);
         }
     }
-    
-    public void ConnectionLost(long taskId){
-        Log.d(TAG, "ConnectionLost() called with: taskId = [" + taskId + "]");
-        DownloadManagerListener downloadManagerListener = null;
-        if (downloadManagerListenerWeakReference != null)
-            downloadManagerListener = downloadManagerListenerWeakReference.get();
-    	if (downloadManagerListener != null) {
-			downloadManagerListener.connectionLost(taskId);
-		}
-    }
+
 
     public void countBytesDownloaded(long bytes) {
         this.accumulateByteDownloaded += bytes;

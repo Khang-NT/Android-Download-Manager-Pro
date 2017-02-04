@@ -36,6 +36,7 @@ public class DownloadManagerService extends Service {
     public static final String CHUNK_COUNT_KEY = "chunk_count";
     public static final String TASK_INFO_KEY = "task_info_key";
     public static final String TASK_ID_KEY = "task_id";
+    public static final String TASK_DATA = "task_data";
 
     public static final String ACTION_START = "download.manager.action.start";
     public static final String ACTION_START_QUEUE = "download.manager.start.queue";

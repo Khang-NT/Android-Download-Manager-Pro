@@ -2,6 +2,8 @@ package com.golshadi.majid.database.elements;
 
 import android.content.ContentValues;
 import android.database.Cursor;
+import android.os.Parcel;
+import android.os.Parcelable;
 import android.support.annotation.Nullable;
 
 import com.golshadi.majid.database.constants.TASKS;
@@ -22,7 +24,7 @@ import com.golshadi.majid.database.constants.TASKS;
  * + TASKS.COLUMN_EXTENSION + " CHAR( 32 )"
  * + " ); "
  */
-public class Task {
+public class Task implements Parcelable {
 
     public int id;
     public String name;
@@ -69,6 +71,57 @@ public class Task {
         this.priority = priority;
         this.jsonExtra = jsonExtra;
     }
+
+    protected Task(Parcel in) {
+        id = in.readInt();
+        name = in.readString();
+        size = in.readLong();
+        state = in.readInt();
+        url = in.readString();
+        percent = in.readInt();
+        chunks = in.readInt();
+        notify = in.readByte() != 0x00;
+        resumable = in.readByte() != 0x00;
+        save_address = in.readString();
+        priority = in.readByte() != 0x00;
+        jsonExtra = (String) in.readValue(String.class.getClassLoader());
+        errorMessage = (String) in.readValue(String.class.getClassLoader());
+    }
+
+    @Override
+    public int describeContents() {
+        return 0;
+    }
+
+    @Override
+    public void writeToParcel(Parcel dest, int flags) {
+        dest.writeInt(id);
+        dest.writeString(name);
+        dest.writeLong(size);
+        dest.writeInt(state);
+        dest.writeString(url);
+        dest.writeInt(percent);
+        dest.writeInt(chunks);
+        dest.writeByte((byte) (notify ? 0x01 : 0x00));
+        dest.writeByte((byte) (resumable ? 0x01 : 0x00));
+        dest.writeString(save_address);
+        dest.writeByte((byte) (priority ? 0x01 : 0x00));
+        dest.writeValue(jsonExtra);
+        dest.writeValue(errorMessage);
+    }
+
+    @SuppressWarnings("unused")
+    public static final Parcelable.Creator<Task> CREATOR = new Parcelable.Creator<Task>() {
+        @Override
+        public Task createFromParcel(Parcel in) {
+            return new Task(in);
+        }
+
+        @Override
+        public Task[] newArray(int size) {
+            return new Task[size];
+        }
+    };
 
     public Task setErrorMessage(@Nullable String errorMessage) {
         this.errorMessage = errorMessage;
@@ -124,26 +177,4 @@ public class Task {
         errorMessage = cr.getString(
                 cr.getColumnIndex(TASKS.COLUMN_ERROR_MESSAGE));
     }
-
-//    public JSONObject toJsonObject() {
-//        JSONObject json = new JSONObject();
-//        try {
-//            json.put("id", id)
-//                    .put("name", name)
-//                    .put("size", size)
-//                    .put("state", state)
-//                    .put("url", url)
-//                    .put("percent", percent)
-//                    .put("chunks", chunks)
-//                    .put("notify", notify)
-//                    .put("resumable", resumable)
-//                    .put("save_address", save_address)
-//                    .put("extension", extension)
-//                    .put("priority", priority);
-//        } catch (JSONException e) {
-//            e.printStackTrace();
-//        }
-//
-//        return json;
-//    }
 }
