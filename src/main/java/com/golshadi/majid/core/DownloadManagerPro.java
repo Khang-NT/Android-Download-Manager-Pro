@@ -91,7 +91,8 @@ public class DownloadManagerPro {
      * @return id
      * inserted task id
      */
-    public int addTask(String url, String saveName, String sdCardFolderAddress, int chunk, boolean overwrite, @Nullable String jsonExtra) {
+    public int addTask(String url, String saveName, String sdCardFolderAddress, int chunk, boolean overwrite, @Nullable String jsonExtra,
+                       long fileSize) {
         if (queue.checkExistTaskWithFileName(saveName))
             return -1;
         if (!overwrite)
@@ -101,7 +102,7 @@ public class DownloadManagerPro {
 
         chunk = setMaxChunk(chunk);
         String saveAddress = Environment.getExternalStorageDirectory() + "/" + sdCardFolderAddress;
-        Task task = insertNewTask(saveName, url, chunk, saveAddress, true, jsonExtra);
+        Task task = insertNewTask(saveName, url, chunk, saveAddress, true, jsonExtra, fileSize);
         ReportStructure rs = new ReportStructure();
         rs.setObjectValues(task, Collections.emptyList());
         moderator.putReport(rs);
@@ -263,7 +264,7 @@ public class DownloadManagerPro {
             List<Chunk> taskChunks =
                     chunksDataSource.chunksRelatedTask(task.id);
             for (Chunk chunk : taskChunks) {
-                FileUtils.delete(task.save_address, String.valueOf(chunk.id));
+                FileUtils.delete(task.save_address, ChunksDataSource.getChunkFileName(chunk.id));
                 chunksDataSource.delete(chunk.id);
             }
 
@@ -298,8 +299,10 @@ public class DownloadManagerPro {
         return tasksDataSource.getUnCompletedTasks(QueueSort.OLDEST_FIRST);
     }
 
-    private Task insertNewTask(String fileName, String url, int chunk, String save_address, boolean priority, String jsonExtra) {
+    private Task insertNewTask(String fileName, String url, int chunk, String save_address, boolean priority, String jsonExtra,
+                               long fileSize) {
         Task task = new Task(0, fileName, url, TaskStates.INIT, chunk, save_address, priority, jsonExtra);
+        task.size = fileSize;
         task.id = (int) tasksDataSource.insertTask(task);
         Log.d("--------", "task id " + String.valueOf(task.id));
         return task;

@@ -1,6 +1,7 @@
 package com.golshadi.majid.core.chunkWorker;
 
 import com.golshadi.majid.Utils.helper.FileUtils;
+import com.golshadi.majid.database.ChunksDataSource;
 import com.golshadi.majid.database.elements.Chunk;
 import com.golshadi.majid.database.elements.Task;
 import com.golshadi.majid.report.listener.DownloadManagerListener;
@@ -44,7 +45,7 @@ public class Rebuilder extends Thread{
         int read = 0;
         for (Chunk chunk : taskChunks) {
             FileInputStream chFileIn =
-                    FileUtils.getInputStream(task.save_address, String.valueOf(chunk.id));
+                    FileUtils.getInputStream(task.save_address, ChunksDataSource.getChunkFileName(chunk.id));
 
             try {
                 while ((read = chFileIn.read(readBuffer)) > 0) {

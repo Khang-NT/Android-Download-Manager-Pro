@@ -75,7 +75,7 @@ public class Moderator {
             // get any chunk file size calculate
             for (Chunk chunk : taskChunks) {
 
-                downloaded = FileUtils.size(task.save_address, String.valueOf(chunk.id));
+                downloaded = FileUtils.size(task.save_address, ChunksDataSource.getChunkFileName(chunk.id));
                 totalSize = chunk.end - chunk.begin + 1;
 
                 if (!task.resumable) {
@@ -201,7 +201,7 @@ public class Moderator {
         // delete chunk row from chunk table
         for (Chunk chunk : taskChunks) {
             chunksDataSource.delete(chunk.id);
-            FileUtils.delete(task.save_address, String.valueOf(chunk.id));
+            FileUtils.delete(task.save_address, ChunksDataSource.getChunkFileName(chunk.id));
         }
 
         // notify to developer------------------------------------------------------------
@@ -237,7 +237,7 @@ public class Moderator {
         List<Chunk> taskChunks =
                 chunksDataSource.chunksRelatedTask(task.id);
         for (Chunk chunk : taskChunks) {
-            FileUtils.delete(task.save_address, String.valueOf(chunk.id));
+            FileUtils.delete(task.save_address, ChunksDataSource.getChunkFileName(chunk.id));
             chunksDataSource.delete(chunk.id);
         }
 

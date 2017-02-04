@@ -3,6 +3,7 @@ package com.golshadi.majid.core.chunkWorker;
 import android.util.Log;
 
 import com.golshadi.majid.Utils.helper.FileUtils;
+import com.golshadi.majid.database.ChunksDataSource;
 import com.golshadi.majid.database.elements.Chunk;
 import com.golshadi.majid.database.elements.Task;
 
@@ -59,7 +60,7 @@ public class AsyncWorker extends Thread {
                 connection.connect();
 
 
-                File cf = new File(FileUtils.address(task.save_address, String.valueOf(chunk.id)));
+                File cf = new File(FileUtils.address(task.save_address, ChunksDataSource.getChunkFileName(chunk.id)));
                 // Check response code first to avoid error stream
                 int status = connection.getResponseCode();
                 InputStream remoteFileIn;

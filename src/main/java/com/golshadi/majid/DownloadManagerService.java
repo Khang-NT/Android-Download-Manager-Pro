@@ -112,8 +112,9 @@ public class DownloadManagerService extends Service {
         sharedPreferences.edit().putInt(CHUNK_COUNT_KEY, n).apply();
     }
 
-    public void addTask(String url, String fileName, String sdCardFolder, boolean overwrite, String jsonExtra) {
-        downloadManagerPro.addTask(url, fileName, sdCardFolder, chunkCount, overwrite, jsonExtra);
+    public void addTask(String url, String fileName, String sdCardFolder, boolean overwrite, String jsonExtra,
+                        long fileSize) {
+        downloadManagerPro.addTask(url, fileName, sdCardFolder, chunkCount, overwrite, jsonExtra, fileSize);
     }
 
     public void startQueue() {
@@ -140,7 +141,8 @@ public class DownloadManagerService extends Service {
     public int onStartCommand(Intent intent, int flags, int startId) {
         if (ACTION_ADD_TASK.equals(intent.getAction())) {
             TaskInfo taskInfo = intent.getParcelableExtra(TASK_INFO_KEY);
-            addTask(taskInfo.url, taskInfo.fileName, taskInfo.sdCardFolder, taskInfo.overwrite, taskInfo.jsonExtra);
+            addTask(taskInfo.url, taskInfo.fileName, taskInfo.sdCardFolder, taskInfo.overwrite, taskInfo.jsonExtra,
+                    taskInfo.fileSize);
             downloadManagerPro.startQueueDownload();
             handler.sendEmptyMessage(0);
         } else if (ACTION_REMOVE_TASK.equals(intent.getAction())) {
@@ -171,13 +173,20 @@ public class DownloadManagerService extends Service {
         final String sdCardFolder;
         final boolean overwrite;
         final String jsonExtra;
+        final long fileSize;
 
         public TaskInfo(String url, String fileName, String sdCardFolder, boolean overwrite, String jsonExtra) {
+            this(url, fileName, sdCardFolder, overwrite, jsonExtra, 0);
+        }
+
+        public TaskInfo(String url, String fileName, String sdCardFolder, boolean overwrite, String jsonExtra,
+                        long fileSize) {
             this.url = url;
             this.fileName = fileName;
             this.sdCardFolder = sdCardFolder;
             this.overwrite = overwrite;
             this.jsonExtra = jsonExtra;
+            this.fileSize = fileSize;
         }
 
         protected TaskInfo(Parcel in) {
@@ -186,6 +195,7 @@ public class DownloadManagerService extends Service {
             sdCardFolder = in.readString();
             overwrite = in.readInt() == 1;
             jsonExtra = in.readString();
+            fileSize = in.readLong();
         }
 
         public static final Creator<TaskInfo> CREATOR = new Creator<TaskInfo>() {
@@ -212,6 +222,7 @@ public class DownloadManagerService extends Service {
             dest.writeString(sdCardFolder);
             dest.writeInt(overwrite ? 1 : 0);
             dest.writeString(jsonExtra);
+            dest.writeLong(fileSize);
         }
     }
 
@@ -322,5 +333,7 @@ public class DownloadManagerService extends Service {
             speed /= 1024;
             return ". " + speed + " GB/s";
         }
+
+
     }
 }

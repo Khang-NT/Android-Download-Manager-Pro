@@ -18,6 +18,10 @@ public class ChunksDataSource {
 
     private SQLiteDatabase database;
 
+    public static String getChunkFileName(int chunkId) {
+        return "._" + String.valueOf(chunkId);
+    }
+
     public void openDatabase(DatabaseHelper databaseHelper){
         database = databaseHelper.getWritableDatabase();
     }

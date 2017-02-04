@@ -125,7 +125,9 @@ public class AsyncStartDownload extends Thread {
             return false;
         }
 
-        task.size = urlConnection.getContentLength();
+        // allow set size manually for task
+        if (task.size != 0)
+            task.size = urlConnection.getContentLength();
 //                MimeTypeMap.getFileExtensionFromUrl(task.url);
 
         //        Log.d("-------", "anything goes right");
@@ -162,8 +164,8 @@ public class AsyncStartDownload extends Thread {
 
     private void makeFileForChunks(int firstId, Task task) {
         for (int endId = firstId + task.chunks; firstId < endId; firstId++)
-            FileUtils.create(task.save_address, String.valueOf(firstId));
-
+            FileUtils.create(task.save_address, ChunksDataSource.getChunkFileName(firstId));
+        // task chunk file name: ._1 ._2 ...
     }
 
 
@@ -171,7 +173,7 @@ public class AsyncStartDownload extends Thread {
         List<Chunk> TaskChunks = chunksDataSource.chunksRelatedTask(task.id);
 
         for (Chunk chunk : TaskChunks) {
-            FileUtils.delete(task.save_address, String.valueOf(chunk.id));
+            FileUtils.delete(task.save_address, ChunksDataSource.getChunkFileName(chunk.id));
             chunksDataSource.delete(chunk.id);
         }
     }

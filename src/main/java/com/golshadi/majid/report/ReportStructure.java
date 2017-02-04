@@ -4,6 +4,7 @@ import android.support.annotation.Nullable;
 
 import com.golshadi.majid.Utils.helper.FileUtils;
 import com.golshadi.majid.core.enums.TaskStates;
+import com.golshadi.majid.database.ChunksDataSource;
 import com.golshadi.majid.database.elements.Chunk;
 import com.golshadi.majid.database.elements.Task;
 
@@ -85,7 +86,7 @@ public class ReportStructure {
         // if download not completed we have chunks
         if (task.state != TaskStates.DOWNLOAD_FINISHED) {
             for (Chunk chunk : chunks) {
-                this.downloadedLength += FileUtils.size(task.save_address, String.valueOf(chunk.id));
+                this.downloadedLength += FileUtils.size(task.save_address, ChunksDataSource.getChunkFileName(chunk.id));
             }
 
             if (task.size > 0) {
