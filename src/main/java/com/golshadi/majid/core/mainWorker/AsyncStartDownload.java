@@ -3,8 +3,6 @@ package com.golshadi.majid.core.mainWorker;
 import android.util.Log;
 
 import com.golshadi.majid.Utils.helper.FileUtils;
-import com.golshadi.majid.appConstants.DispatchEcode;
-import com.golshadi.majid.appConstants.DispatchElevel;
 import com.golshadi.majid.core.chunkWorker.Moderator;
 import com.golshadi.majid.core.chunkWorker.Rebuilder;
 import com.golshadi.majid.core.enums.TaskStates;
@@ -12,39 +10,38 @@ import com.golshadi.majid.database.ChunksDataSource;
 import com.golshadi.majid.database.TasksDataSource;
 import com.golshadi.majid.database.elements.Chunk;
 import com.golshadi.majid.database.elements.Task;
-import com.golshadi.majid.report.listener.DownloadManagerListenerModerator;
 
 import java.io.IOException;
-import java.net.HttpURLConnection;
-import java.net.MalformedURLException;
-import java.net.URL;
 import java.util.List;
+
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.Response;
+import timber.log.Timber;
 
 /**
  * Created by Majid Golshadi on 4/20/2014.
  */
 public class AsyncStartDownload extends Thread {
 
-    private static final long MEGA_BYTE = 1048576;
+    private static final long MEGA_BYTE = 1024 * 1024L;
     private final TasksDataSource tasksDataSource;
     private final ChunksDataSource chunksDataSource;
     private final Moderator moderator;
-    private final DownloadManagerListenerModerator downloadManagerListener;
     private final Task task;
-    private HttpURLConnection urlConnection;
+    private final OkHttpClient okHttpClient;
 
     public AsyncStartDownload(TasksDataSource taskDs, ChunksDataSource chunkDs,
-                              Moderator moderator, DownloadManagerListenerModerator listener, Task task) {
+                              Moderator moderator, Task task, OkHttpClient okHttpClient) {
         this.tasksDataSource = taskDs;
         this.chunksDataSource = chunkDs;
         this.moderator = moderator;
-        this.downloadManagerListener = listener;
         this.task = task;
+        this.okHttpClient = okHttpClient;
     }
 
     @Override
     public void run() {
-
         // switch on task state
         switch (task.state) {
 
@@ -55,11 +52,17 @@ public class AsyncStartDownload extends Thread {
                 //      and make file in directory
                 // -->save chunks in tables
 
-                if (!getTaskFileInfo(task))
-                    break;
-
-                convertTaskToChunks(task);
-
+                try {
+                    getTaskFileInfo(task);
+                    convertTaskToChunks(task);
+                    task.state = TaskStates.READY;
+                    tasksDataSource.update(task);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                    Timber.e(e, "[%d] Init task failed.", task.id);
+                    moderator.error(task.id, "Init task failed: " + e.getMessage());
+                    return;
+                }
 
             case TaskStates.READY:
             case TaskStates.PAUSED:
@@ -72,10 +75,17 @@ public class AsyncStartDownload extends Thread {
                 // -->start to download any chunk
                 if (!task.resumable) {
                     deleteChunk(task);
-                    generateNewChunk(task);
+                    try {
+                        generateNewChunk(task);
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                        Timber.e(e, "[%d] Resume/start download task failed.", task.id);
+                        moderator.error(task.id, "Can't create chunk file: " + e.getMessage());
+                        break;
+                    }
                 }
-                Log.d("--------", "moderator start");
-                moderator.start(task, downloadManagerListener);
+                Timber.d("[%d] Start download", task.id);
+                moderator.start(task);
                 break;
 
             case TaskStates.DOWNLOAD_FINISHED:
@@ -96,46 +106,20 @@ public class AsyncStartDownload extends Thread {
         return;
     }
 
-    private boolean getTaskFileInfo(Task task) {
-
-        URL url;
-        try {
-            url = new URL(task.url);
-            urlConnection = (HttpURLConnection) url.openConnection();
-
-            if (urlConnection == null) {
-//            	MyExtension.AS3_CONTEXT.dispatchStatusEventAsync(
-//    					DispatchEcode.EXCEPTION, DispatchElevel.OPEN_CONNECTION);
-                Log.d(DispatchEcode.EXCEPTION, DispatchElevel.OPEN_CONNECTION);
-                return false;
-            }
-        } catch (MalformedURLException e) {
-
-            e.printStackTrace();
-//            MyExtension.AS3_CONTEXT.dispatchStatusEventAsync(
-//					DispatchEcode.EXCEPTION, DispatchElevel.URL_INVALID);
-            Log.d(DispatchEcode.EXCEPTION, DispatchElevel.URL_INVALID);
-            return false;
-
-        } catch (IOException e) {
-            e.printStackTrace();
-//			MyExtension.AS3_CONTEXT.dispatchStatusEventAsync(
-//					DispatchEcode.EXCEPTION, DispatchElevel.OPEN_CONNECTION);
-            Log.d(DispatchEcode.EXCEPTION, DispatchElevel.OPEN_CONNECTION);
-            return false;
+    private void getTaskFileInfo(Task task) throws IOException {
+        if (task.size <= 0) {
+            Request request = new Request.Builder().head().url(task.url)
+                    .header("Range", "bytes=0-")
+                    .build();
+            Response response = okHttpClient.newCall(request).execute();
+            if (!response.isSuccessful()) throw new IOException("Given URL response non-success status code: " + response.code() + ", " + response.message());
+            if (response.isRedirect()) throw new IllegalStateException("OkHttpClient not following redirect");
+            task.size = Long.parseLong(response.header("Content-Length", "0"));
         }
-
-        // allow set size manually for task
-        if (task.size != 0)
-            task.size = urlConnection.getContentLength();
-//                MimeTypeMap.getFileExtensionFromUrl(task.url);
-
-        //        Log.d("-------", "anything goes right");
-        return true;
     }
 
 
-    private void convertTaskToChunks(Task task) {
+    private void convertTaskToChunks(Task task) throws IOException {
         if (task.size == 0) {
             // it's NOT resumable!!
             // one chunk
@@ -158,11 +142,9 @@ public class AsyncStartDownload extends Thread {
         int firstChunkID =
                 chunksDataSource.insertChunks(task);
         makeFileForChunks(firstChunkID, task);
-        task.state = TaskStates.READY;
-        tasksDataSource.update(task);
     }
 
-    private void makeFileForChunks(int firstId, Task task) {
+    private void makeFileForChunks(int firstId, Task task) throws IOException {
         for (int endId = firstId + task.chunks; firstId < endId; firstId++)
             FileUtils.create(task.save_address, ChunksDataSource.getChunkFileName(firstId));
         // task chunk file name: ._1 ._2 ...
@@ -178,7 +160,7 @@ public class AsyncStartDownload extends Thread {
         }
     }
 
-    private void generateNewChunk(Task task) {
+    private void generateNewChunk(Task task) throws IOException {
         int firstChunkID =
                 chunksDataSource.insertChunks(task);
         makeFileForChunks(firstChunkID, task);

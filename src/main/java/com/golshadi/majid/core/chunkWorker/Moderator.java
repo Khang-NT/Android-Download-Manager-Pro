@@ -1,7 +1,6 @@
 package com.golshadi.majid.core.chunkWorker;
 
 
-import android.util.Log;
 import android.util.SparseArray;
 
 import com.golshadi.majid.Utils.helper.FileUtils;
@@ -16,6 +15,11 @@ import com.golshadi.majid.report.listener.DownloadManagerListenerModerator;
 
 import java.util.List;
 
+import io.reactivex.disposables.Disposable;
+import io.reactivex.schedulers.Schedulers;
+import okhttp3.OkHttpClient;
+import timber.log.Timber;
+
 /**
  * Created by Majid Golshadi on 4/14/2014.
  * <p>
@@ -28,28 +32,33 @@ import java.util.List;
 public class Moderator {
 
     public static final String TAG = "Moderator";
-    private ChunksDataSource chunksDataSource;  // query on chunk table
-    private TasksDataSource tasksDataSource;    // query on task table
-    DownloadManagerListenerModerator downloadManagerListener;
 
-    private SparseArray<Thread> workerList;          // chunk downloader list
-    private SparseArray<ReportStructure> processReports;  // to save download percent
+    private final ChunksDataSource chunksDataSource;  // query on chunk table
+    private final TasksDataSource tasksDataSource;    // query on task table
+    protected final DownloadManagerListenerModerator downloadManagerListener;
+
+    private final SparseArray<Disposable> workerList;          // chunk downloader list
+    private final SparseArray<ReportStructure> processReports;  // to save download percent
 
     private QueueModerator finishedDownloadQueueObserver;
+    private final OkHttpClient okHttpClient;
 
-    public Moderator(TasksDataSource tasksDS, ChunksDataSource chunksDS) {
-        tasksDataSource = tasksDS;
-        chunksDataSource = chunksDS;
-        workerList = new SparseArray<>(); // chunk downloader with they id key
-        processReports = new SparseArray<>();
+    public Moderator(TasksDataSource tasksDS, ChunksDataSource chunksDS,
+                     DownloadManagerListenerModerator listenerModerator,
+                     OkHttpClient okHttpClient) {
+        this.tasksDataSource = tasksDS;
+        this.chunksDataSource = chunksDS;
+        this.workerList = new SparseArray<>(); // chunk downloader with they id key
+        this.processReports = new SparseArray<>();
+        this.downloadManagerListener = listenerModerator;
+        this.okHttpClient = okHttpClient;
     }
 
     public void setQueueObserver(QueueModerator queueObserver) {
         finishedDownloadQueueObserver = queueObserver;
     }
 
-    public void start(Task task, DownloadManagerListenerModerator listener) {
-        downloadManagerListener = listener;
+    public void start(Task task) {
         // fetch task chunk info
         // set task state to Downloading
         // get any chunk file size calculate where it has to begin
@@ -60,8 +69,8 @@ public class Moderator {
         ReportStructure rps = processReports.get(task.id);
         if (rps == null)
             rps = new ReportStructure();
-        rps.setObjectValues(task, taskChunks);
         processReports.put(task.id, rps);
+        rps.setObjectValues(task, taskChunks);
 
         long downloaded;
         long totalSize;
@@ -73,33 +82,23 @@ public class Moderator {
             tasksDataSource.update(task);
 
             // get any chunk file size calculate
-            for (Chunk chunk : taskChunks) {
-
-                downloaded = FileUtils.size(task.save_address, ChunksDataSource.getChunkFileName(chunk.id));
-                totalSize = chunk.end - chunk.begin + 1;
-
-                if (!task.resumable) {
-                    chunk.begin = 0;
-                    chunk.end = 0;
-                    // start one chunk as AsyncTask (duplicate code!! :( )                    
-                    Thread chunkDownloaderThread = new AsyncWorker(task, chunk, this);
-                    workerList.put(chunk.id, chunkDownloaderThread);
-                    chunkDownloaderThread.start();
-
-                    // sure: only one chunk for unresumable task
-                    break;
-                } else if (downloaded != totalSize) {
-                    // where it has to begin
-                    // modify start point but i have not save it in Database
+            synchronized (workerList) {
+                for (Chunk chunk : taskChunks) {
+                    // chunk file must exist
+                    downloaded = FileUtils.size(task.save_address, ChunksDataSource.getChunkFileName(chunk.id));
+                    totalSize = chunk.end - chunk.begin + 1;
                     chunk.begin = chunk.begin + downloaded;
 
-                    // start any of them as AsyncTask
-                    Thread chunkDownloaderThread = new AsyncWorker(task, chunk, this);
-                    workerList.put(chunk.id, chunkDownloaderThread);
-                    chunkDownloaderThread.start();
+                    // chunk is downloaded completely
+                    if (!chunk.completed && downloaded == totalSize) chunk.completed = true;
+
+                    Disposable chunkDownloaderDisposable =
+                            AsyncWorker.createAsyncWorker(task, chunk, chunksDataSource, this, okHttpClient)
+                                    .subscribeOn(Schedulers.io())
+                                    .subscribe();
+                    workerList.put(chunk.id, chunkDownloaderDisposable);
                 }
             }
-
             // notify to developer------------------------------------------------------------
             downloadManagerListener.OnDownloadStarted(task.id);
         }
@@ -109,10 +108,11 @@ public class Moderator {
      * pause all chunk thread related to one Task
      */
     public Task pause(int taskID) {
-        Log.d(TAG, "pause() called with: taskID = [" + taskID + "]");
-        Task task = tasksDataSource.getTaskInfo(taskID);
+        Timber.d("[%d] Pause task", taskID);
+        final Task task = tasksDataSource.getTaskInfo(taskID);
 
-        if (task != null && task.state != TaskStates.PAUSED && task.state != TaskStates.ERROR) {
+        if (task != null && task.state != TaskStates.PAUSED && task.state != TaskStates.ERROR
+                && task.state != TaskStates.END) {
             // pause task asyncWorker
             // change task state
             // save in DB
@@ -121,11 +121,13 @@ public class Moderator {
             // pause task asyncWorker
             List<Chunk> taskChunks =
                     chunksDataSource.chunksRelatedTask(task.id);
-            for (Chunk chunk : taskChunks) {
-                Thread worker = workerList.get(chunk.id);
-                if (worker != null) {
-                    worker.interrupt();
-                    workerList.remove(chunk.id);
+            synchronized (workerList) {
+                for (Chunk chunk : taskChunks) {
+                    final Disposable disposable = workerList.get(chunk.id);
+                    if (disposable != null) {
+                        disposable.dispose();
+                        workerList.remove(chunk.id);
+                    }
                 }
             }
 
@@ -135,8 +137,7 @@ public class Moderator {
             tasksDataSource.update(task);
 
             final ReportStructure rs = processReports.get(taskID);
-            if (rs != null)
-                rs.setObjectValues(task, taskChunks);
+            if (rs != null) rs.setObjectValues(task, taskChunks);
 
             // notify to developer------------------------------------------------------------
             downloadManagerListener.OnDownloadPaused(task.id);
@@ -155,10 +156,9 @@ public class Moderator {
     public void process(int taskId, long byteRead) {
         downloadManagerListener.countBytesDownloaded(byteRead);
 
-        ReportStructure report = processReports.get(taskId);
+        final ReportStructure report = processReports.get(taskId);
         double percent = -1;
-        long downloadLength = report
-                .increaseDownloadedLength(byteRead);
+        long downloadLength = report.increaseDownloadedLength(byteRead);
 
         downloadByteThreshold += byteRead;
         if (downloadByteThreshold > THRESHOLD) {
@@ -174,25 +174,22 @@ public class Moderator {
     }
 
     public void rebuild(Chunk chunk) {
-        workerList.remove(chunk.id);
-        List<Chunk> taskChunks =
-                chunksDataSource.chunksRelatedTask(chunk.task_id); // delete itself from worker list
-
-        for (Chunk ch : taskChunks) {
-            if (workerList.get(ch.id) != null)
-                return;
+        List<Chunk> taskChunks;
+        synchronized (workerList) {
+            workerList.remove(chunk.id);
+            taskChunks = chunksDataSource.chunksRelatedTask(chunk.task_id);
+            for (Chunk ch : taskChunks) {
+                if (workerList.get(ch.id) != null) {
+                    return;
+                }
+            }
         }
-
-        Task task = tasksDataSource.getTaskInfo(chunk.task_id);
-
+        final Task task = tasksDataSource.getTaskInfo(chunk.task_id);
         // set state task state to finished
         task.state = TaskStates.DOWNLOAD_FINISHED;
         tasksDataSource.update(task);
 
-        // notify to developer------------------------------------------------------------
         downloadManagerListener.OnDownloadFinished(task.id);
-
-        // assign chunk files together
         Thread t = new Rebuilder(task, taskChunks, this);
         t.start();
     }
@@ -220,9 +217,7 @@ public class Moderator {
 
     private void wakeUpObserver(int taskID) {
         if (finishedDownloadQueueObserver != null) {
-
             finishedDownloadQueueObserver.wakeUp(taskID);
-
         }
     }
 
@@ -234,16 +229,23 @@ public class Moderator {
         tasksDataSource.update(task);
 
         // clean up
-        List<Chunk> taskChunks =
-                chunksDataSource.chunksRelatedTask(task.id);
+        List<Chunk> taskChunks = chunksDataSource.chunksRelatedTask(task.id);
         for (Chunk chunk : taskChunks) {
-            FileUtils.delete(task.save_address, ChunksDataSource.getChunkFileName(chunk.id));
+            try {
+                FileUtils.delete(task.save_address, ChunksDataSource.getChunkFileName(chunk.id));
+            } catch (Exception ex) {
+                Timber.e(ex, "[%d] Clean up task file after error", taskId);
+            }
             chunksDataSource.delete(chunk.id);
         }
 
         long size = FileUtils.size(task.save_address, task.name);
         if (size > 0) {
-            FileUtils.delete(task.save_address, task.name);
+            try {
+                FileUtils.delete(task.save_address, task.name);
+            } catch (Exception ex) {
+                Timber.e(ex, "[%d] Clean up task file after error", taskId);
+            }
         }
 
         downloadManagerListener.onDownloadError(taskId, errorMessage);

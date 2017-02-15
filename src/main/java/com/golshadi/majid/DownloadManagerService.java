@@ -224,6 +224,18 @@ public class DownloadManagerService extends Service {
             dest.writeString(jsonExtra);
             dest.writeLong(fileSize);
         }
+
+        @Override
+        public String toString() {
+            return "TaskInfo{" +
+                    "url='" + url + '\'' +
+                    ", fileName='" + fileName + '\'' +
+                    ", sdCardFolder='" + sdCardFolder + '\'' +
+                    ", overwrite=" + overwrite +
+                    ", jsonExtra='" + jsonExtra + '\'' +
+                    ", fileSize=" + fileSize +
+                    '}';
+        }
     }
 
     private class HandlerCallback implements Handler.Callback, DownloadSpeedListener, QueueModerator.OnQueueChanged {

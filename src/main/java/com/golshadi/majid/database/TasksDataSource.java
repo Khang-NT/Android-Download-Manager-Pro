@@ -70,7 +70,7 @@ public class TasksDataSource {
         return tasks;
     }
 
-    public List<Task> getUnnotifiedCompleted() {
+    public List<Task> getUnnoticedCompleted() {
         List<Task> completedTasks = new ArrayList<Task>();
 
         // SQLite does not have a separate Boolean storage class. Instead, Boolean values are stored as integers 0 (false) and 1 (true).

@@ -4,9 +4,12 @@ import com.golshadi.majid.Utils.helper.FileUtils;
 import com.golshadi.majid.database.ChunksDataSource;
 import com.golshadi.majid.database.elements.Chunk;
 import com.golshadi.majid.database.elements.Task;
-import com.golshadi.majid.report.listener.DownloadManagerListener;
 
-import java.io.*;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.util.List;
 
 /**
@@ -17,7 +20,6 @@ public class Rebuilder extends Thread{
     List<Chunk> taskChunks;
     Task task;
     Moderator observer;
-    DownloadManagerListener downloadManagerListener;
 
     public Rebuilder(Task task, List<Chunk> taskChunks, Moderator moderator){
         this.taskChunks = taskChunks;
@@ -30,11 +32,12 @@ public class Rebuilder extends Thread{
         // notify to developer------------------------------------------------------------
         observer.downloadManagerListener.OnDownloadRebuildStart(task.id);
 
-        File file = FileUtils.create(task.save_address, task.name);
+        final File file = new File(task.save_address, task.name);
 
         FileOutputStream finalFile;
         try {
-            finalFile = new FileOutputStream(file, true);
+            // append = false : overwrite existing file
+            finalFile = new FileOutputStream(file, false);
         } catch (FileNotFoundException e) {
             e.printStackTrace();
             observer.error(task.id, "Can't create output file: " + file);
@@ -42,7 +45,7 @@ public class Rebuilder extends Thread{
         }
 
         byte[] readBuffer = new byte[1024];
-        int read = 0;
+        int read;
         for (Chunk chunk : taskChunks) {
             FileInputStream chFileIn =
                     FileUtils.getInputStream(task.save_address, ChunksDataSource.getChunkFileName(chunk.id));
@@ -53,15 +56,17 @@ public class Rebuilder extends Thread{
                 }
             } catch (IOException e) {
                 e.printStackTrace();
+                observer.error(task.id, "Merge chunk files error: " + e);
+                return;
             }
 
 
-            if (finalFile != null) {
-                try {
-                    finalFile.flush();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
+            try {
+                finalFile.flush();
+            } catch (IOException e) {
+                e.printStackTrace();
+                observer.error(task.id, "Merge chunk files error: " + e);
+                return;
             }
 
         }

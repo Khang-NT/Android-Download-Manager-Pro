@@ -24,6 +24,11 @@ import com.golshadi.majid.report.listener.DownloadSpeedListener;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
+
+import okhttp3.OkHttpClient;
+import okhttp3.logging.HttpLoggingInterceptor;
+import timber.log.Timber;
 
 /**
  * Created by Majid Golshadi on 4/10/2014.
@@ -33,17 +38,16 @@ public class DownloadManagerPro {
     public static final String TASK_ID_KEY = "task_id";
     public static final String EXTRA_JSON_KEY = "json_extra";
     public static final String ACTION_DOWNLOAD_COMPLETED = "download.manager.download.completed";
-
+    public static final int CONNECT_TIMEOUT = 30;
+    public static final int READ_TIMEOUT = 20;
     private static final int MAX_CHUNKS = 16;
 
-    private Moderator moderator;
-    private DatabaseHelper dbHelper;
-
-    private TasksDataSource tasksDataSource;
-    private ChunksDataSource chunksDataSource;
-
+    private final Moderator moderator;
+    private final TasksDataSource tasksDataSource;
+    private final ChunksDataSource chunksDataSource;
+    private final DatabaseHelper dbHelper;
+    private final OkHttpClient okHttpClient;
     private final DownloadManagerListenerModerator downloadManagerListener;
-
     private final QueueModerator queue;
 
     /**
@@ -54,6 +58,19 @@ public class DownloadManagerPro {
      * @param context
      */
     public DownloadManagerPro(Context context, int downloadTaskPerTime) {
+        this(context, downloadTaskPerTime, new OkHttpClient.Builder()
+                .retryOnConnectionFailure(true)
+                .addInterceptor(new HttpLoggingInterceptor(Timber::d)
+                        .setLevel(HttpLoggingInterceptor.Level.BODY))
+                .connectTimeout(CONNECT_TIMEOUT, TimeUnit.SECONDS)
+                .readTimeout(READ_TIMEOUT, TimeUnit.SECONDS)
+                .followRedirects(true)
+                .followSslRedirects(true));
+    }
+
+    public DownloadManagerPro(Context context, int downloadTaskPerTime, OkHttpClient.Builder okhttpBuilder) {
+        this.okHttpClient = okhttpBuilder.build();
+
         dbHelper = new DatabaseHelper(context);
 
         // ready database data source to access tables
@@ -64,14 +81,14 @@ public class DownloadManagerPro {
         chunksDataSource.openDatabase(dbHelper);
 
         // moderate chunks to download one task
-        moderator = new Moderator(tasksDataSource, chunksDataSource);
-
         downloadManagerListener = new DownloadManagerListenerModerator(context, tasksDataSource);
+
+        moderator = new Moderator(tasksDataSource, chunksDataSource, downloadManagerListener, okHttpClient);
 
         List<Task> unCompletedTasks = tasksDataSource.getUnCompletedTasks(QueueSort.OLDEST_FIRST);
 
         queue = new QueueModerator(tasksDataSource, chunksDataSource,
-                moderator, downloadManagerListener, unCompletedTasks, downloadTaskPerTime);
+                moderator, unCompletedTasks, downloadTaskPerTime, okHttpClient);
         List<ReportStructure> reportStructures = readyTaskList(unCompletedTasks);
         moderator.putAllReport(reportStructures);
     }
@@ -97,9 +114,9 @@ public class DownloadManagerPro {
             return -1;
         if (!overwrite)
             saveName = getUniqueName(saveName);
-        else
+        else {
             deleteSameDownloadNameTask(saveName);
-
+        }
         chunk = setMaxChunk(chunk);
         String saveAddress = Environment.getExternalStorageDirectory() + "/" + sdCardFolderAddress;
         Task task = insertNewTask(saveName, url, chunk, saveAddress, true, jsonExtra, fileSize);
@@ -160,7 +177,6 @@ public class DownloadManagerPro {
      * @param token when you add a new download task it's return to you
      * @return
      */
-    @Nullable
     public ReportStructure singleDownloadStatus(int token) {
         ReportStructure report = moderator.getReport(token);
         if (report == null) {
@@ -169,6 +185,9 @@ public class DownloadManagerPro {
                 report = new ReportStructure();
                 List<Chunk> taskChunks = chunksDataSource.chunksRelatedTask(task.id);
                 report.setObjectValues(task, taskChunks);
+                moderator.putReport(report);
+            } else {
+                throw new IllegalArgumentException("Invalid task: " + token);
             }
         }
         return report;
@@ -205,7 +224,7 @@ public class DownloadManagerPro {
      */
     public List<ReportStructure> lastCompletedDownloads() {
         List<ReportStructure> reportList;
-        List<Task> lastCompleted = tasksDataSource.getUnnotifiedCompleted();
+        List<Task> lastCompleted = tasksDataSource.getUnnoticedCompleted();
 
         reportList = readyTaskList(lastCompleted);
 
@@ -217,9 +236,7 @@ public class DownloadManagerPro {
         List<ReportStructure> reportList = new ArrayList<>();
 
         for (Task task : tasks) {
-            List<Chunk> taskChunks = chunksDataSource.chunksRelatedTask(task.id);
-            ReportStructure singleReport = new ReportStructure();
-            singleReport.setObjectValues(task, taskChunks);
+            ReportStructure singleReport = singleDownloadStatus(task.id);
             reportList.add(singleReport);
         }
 
@@ -310,7 +327,6 @@ public class DownloadManagerPro {
 
 
     private int setMaxChunk(int chunk) {
-
         if (chunk < MAX_CHUNKS)
             return chunk;
 
@@ -347,6 +363,7 @@ public class DownloadManagerPro {
     private void deleteSameDownloadNameTask(String saveName) {
         if (isDuplicatedName(saveName)) {
             Task task = tasksDataSource.getTaskInfoWithName(saveName);
+            moderator.pause(task.id);
             tasksDataSource.delete(task.id);
             FileUtils.delete(task.save_address, task.name);
         }

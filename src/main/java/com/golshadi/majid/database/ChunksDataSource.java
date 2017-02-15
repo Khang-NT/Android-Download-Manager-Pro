@@ -1,7 +1,9 @@
 package com.golshadi.majid.database;
 
+import android.content.ContentValues;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
+
 import com.golshadi.majid.Utils.helper.SqlString;
 import com.golshadi.majid.database.constants.CHUNKS;
 import com.golshadi.majid.database.constants.TABLES;
@@ -22,11 +24,11 @@ public class ChunksDataSource {
         return "._" + String.valueOf(chunkId);
     }
 
-    public void openDatabase(DatabaseHelper databaseHelper){
+    public void openDatabase(DatabaseHelper databaseHelper) {
         database = databaseHelper.getWritableDatabase();
     }
 
-    public int insertChunks(Task task){
+    public int insertChunks(Task task) {
         long lastChunkInserted = 0;
 
         if (task.size == 0) { // not resumable
@@ -41,7 +43,7 @@ public class ChunksDataSource {
                 if (i == 0) {
                     chunk.begin = 0;
                 } else {
-                    chunk.begin = (chunkSize * i)+1;
+                    chunk.begin = (chunkSize * i) + 1;
                 }
 
 
@@ -58,13 +60,13 @@ public class ChunksDataSource {
         return (int) lastChunkInserted - task.chunks + 1;
     }
 
-    public List<Chunk> chunksRelatedTask(int taskID){
+    public List<Chunk> chunksRelatedTask(int taskID) {
         List<Chunk> chunks = new ArrayList<Chunk>();
-        String query = "SELECT * FROM "+ TABLES.CHUNKS+" WHERE "+ CHUNKS.COLUMN_TASK_ID+" == "+taskID;
+        String query = "SELECT * FROM " + TABLES.CHUNKS + " WHERE " + CHUNKS.COLUMN_TASK_ID + " == " + taskID;
         Cursor cr = database.rawQuery(query, null);
 
-        if (cr.moveToFirst()){
-            do{
+        if (cr.moveToFirst()) {
+            do {
                 Chunk chunk = new Chunk(taskID);
                 chunk.cursorToChunk(cr);
                 chunks.add(chunk);
@@ -75,8 +77,8 @@ public class ChunksDataSource {
         return chunks;
     }
 
-    public boolean delete(int chunkID){
-        int affectedRow = database.delete(TABLES.CHUNKS, CHUNKS.COLUMN_ID+"="+ SqlString.Int(chunkID), null);
+    public boolean delete(int chunkID) {
+        int affectedRow = database.delete(TABLES.CHUNKS, CHUNKS.COLUMN_ID + "=" + SqlString.Int(chunkID), null);
 
         if (affectedRow != 0)
             return true;
@@ -84,7 +86,13 @@ public class ChunksDataSource {
         return false;
     }
 
-    public void close(){
+    public void markChunkAsCompleted(int chunkId) {
+        ContentValues contentValues = new ContentValues();
+        contentValues.put(CHUNKS.COLUMN_COMPLETED, 1);
+        database.update(TABLES.CHUNKS, contentValues, CHUNKS.COLUMN_ID + " == " + chunkId, null);
+    }
+
+    public void close() {
         database.close();
     }
 }

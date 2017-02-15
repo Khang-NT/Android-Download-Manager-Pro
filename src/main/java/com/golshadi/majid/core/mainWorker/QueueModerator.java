@@ -7,12 +7,13 @@ import com.golshadi.majid.core.chunkWorker.Moderator;
 import com.golshadi.majid.database.ChunksDataSource;
 import com.golshadi.majid.database.TasksDataSource;
 import com.golshadi.majid.database.elements.Task;
-import com.golshadi.majid.report.listener.DownloadManagerListenerModerator;
 
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+
+import okhttp3.OkHttpClient;
 
 /**
  * Created by Majid Golshadi on 4/21/2014.
@@ -27,22 +28,21 @@ public class QueueModerator
     private final TasksDataSource tasksDataSource;
     private final ChunksDataSource chunksDataSource;
     private final Moderator moderator;
-    private final DownloadManagerListenerModerator listener;
     private int downloadTaskPerTime;
 
     private final SparseArray<Task> uncompletedTasks;
     private final SparseArray<Thread> downloaderList;
     private final List<WeakReference<OnQueueChanged>> listeners;
+    private final OkHttpClient okHttpClient;
 
     public QueueModerator(TasksDataSource tasksDataSource, ChunksDataSource chunksDataSource,
-                       Moderator localModerator, DownloadManagerListenerModerator downloadManagerListener,
-                       List<Task> tasks, int downloadPerTime){
+                          Moderator localModerator, List<Task> tasks, int downloadPerTime,
+                          OkHttpClient okHttpClient){
 
         this.tasksDataSource = tasksDataSource;
         this.chunksDataSource = chunksDataSource;
         this.moderator = localModerator;
         this.moderator.setQueueObserver(this);
-        this.listener = downloadManagerListener;
         this.downloadTaskPerTime = downloadPerTime;
         this.uncompletedTasks = new SparseArray<>();
         for (Task task : tasks) {
@@ -51,6 +51,7 @@ public class QueueModerator
         
         this.downloaderList = new SparseArray<>();
         this.listeners = new ArrayList<>();
+        this.okHttpClient = okHttpClient;
     }
 
     public void addOnQueueChangedListener(OnQueueChanged listener) {
@@ -96,7 +97,7 @@ public class QueueModerator
             Task task = uncompletedTasks.get(uncompletedTasks.keyAt(location));
             if (downloaderList.get(task.id) == null) {
                 Thread downloader =
-                        new AsyncStartDownload(tasksDataSource, chunksDataSource, moderator, listener, task);
+                        new AsyncStartDownload(tasksDataSource, chunksDataSource, moderator, task, okHttpClient);
 
                 downloaderList.put(task.id, downloader);
                 downloader.start();

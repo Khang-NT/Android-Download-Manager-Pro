@@ -1,6 +1,6 @@
 package com.golshadi.majid.appConstants;
 
-public class DispatchEcode {
+public class DispatchExceptionCode {
 
 	public final static String DOWNLOAD_STARTED	= "DownloadStarted";
 	public final static String DOWNLOAD_PAUSED	= "DownloadPaused";
