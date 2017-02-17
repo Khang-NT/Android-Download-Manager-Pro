@@ -4,7 +4,6 @@ import android.content.Context;
 import android.os.Environment;
 import android.support.annotation.Nullable;
 import android.util.Log;
-import android.util.SparseArray;
 
 import com.golshadi.majid.Utils.helper.FileUtils;
 import com.golshadi.majid.core.chunkWorker.Moderator;
@@ -24,6 +23,7 @@ import com.golshadi.majid.report.listener.DownloadSpeedListener;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import okhttp3.OkHttpClient;
@@ -61,7 +61,7 @@ public class DownloadManagerPro {
         this(context, downloadTaskPerTime, new OkHttpClient.Builder()
                 .retryOnConnectionFailure(true)
                 .addInterceptor(new HttpLoggingInterceptor(Timber::d)
-                        .setLevel(HttpLoggingInterceptor.Level.BODY))
+                        .setLevel(HttpLoggingInterceptor.Level.HEADERS))
                 .connectTimeout(CONNECT_TIMEOUT, TimeUnit.SECONDS)
                 .readTimeout(READ_TIMEOUT, TimeUnit.SECONDS)
                 .followRedirects(true)
@@ -110,11 +110,14 @@ public class DownloadManagerPro {
      */
     public int addTask(String url, String saveName, String sdCardFolderAddress, int chunk, boolean overwrite, @Nullable String jsonExtra,
                        long fileSize) {
-        if (queue.checkExistTaskWithFileName(saveName))
-            return -1;
-        if (!overwrite)
+        if (!overwrite) {
             saveName = getUniqueName(saveName);
-        else {
+        } else {
+            synchronized (tasksDataSource) {
+                // download tasks with same file output are not accepted, except this task is completed.
+                if (tasksDataSource.containUncompletedTaskWithFileName(saveName))
+                    return -1;
+            }
             deleteSameDownloadNameTask(saveName);
         }
         chunk = setMaxChunk(chunk);
@@ -160,9 +163,8 @@ public class DownloadManagerPro {
 
     public List<ReportStructure> queueStatusReport(boolean downloading) {
         List<ReportStructure> result = new ArrayList<>();
-        SparseArray<Task> uncompletedTasks = queue.getUncompletedTasks();
-        for (int i = 0; i < uncompletedTasks.size(); i++) {
-            int taskId = uncompletedTasks.keyAt(i);
+        Set<Integer> uncompletedTasks = queue.getUncompletedTasks();
+        for (Integer taskId : uncompletedTasks) {
             if (queue.isDownloading(taskId) == downloading) {
                 ReportStructure rs = singleDownloadStatus(taskId);
                 result.add(rs);
@@ -276,7 +278,7 @@ public class DownloadManagerPro {
     public boolean delete(int token, boolean deleteTaskFile) {
         moderator.pause(token);
         queue.removeTask(token);
-        Task task = tasksDataSource.getTaskInfo(token);
+        final Task task = tasksDataSource.getTaskInfo(token);
         if (task.url != null) {
             List<Chunk> taskChunks =
                     chunksDataSource.chunksRelatedTask(task.id);
@@ -294,7 +296,6 @@ public class DownloadManagerPro {
 
             return tasksDataSource.delete(task.id);
         }
-
         return false;
     }
 

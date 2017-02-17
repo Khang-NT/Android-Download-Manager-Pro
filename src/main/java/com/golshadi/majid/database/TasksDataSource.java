@@ -192,6 +192,18 @@ public class TasksDataSource {
         return result;
     }
 
+    public boolean containUncompletedTaskWithFileName(String fileName) {
+        String query = "SELECT * FROM " + TABLES.TASKS + " WHERE " + TASKS.COLUMN_NAME + " == " + SqlString.String(fileName)
+                + " AND " + TASKS.COLUMN_STATE + " != " + TaskStates.END
+                + " AND " + TASKS.COLUMN_STATE + " != " + TaskStates.ERROR;
+        Cursor cr = database.rawQuery(query, null);
+        try {
+            return cr.moveToFirst();
+        } finally {
+            cr.close();
+        }
+    }
+
     public boolean checkUnNotifiedTasks() {
         ContentValues contentValues = new ContentValues();
         contentValues.put(TASKS.COLUMN_NOTIFY, 1);

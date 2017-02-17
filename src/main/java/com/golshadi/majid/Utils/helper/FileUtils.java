@@ -11,7 +11,7 @@ public class FileUtils {
     public static File create(String folderPath, String fileName) throws IOException {
         File folder = new File(folderPath);
         File file = new File(folder, fileName);
-        if (!folder.isDirectory() || !folder.mkdirs())
+        if (!(folder.mkdirs() || folder.isDirectory()))
             throw new IllegalArgumentException("Invalid directory: " + folder);
         if (!file.createNewFile())
             throw new IllegalStateException("Can't create file: " + file);

@@ -8,6 +8,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InterruptedIOException;
 
 import io.reactivex.Completable;
 import okhttp3.OkHttpClient;
@@ -22,7 +23,7 @@ public class AsyncWorker {
 
     public static final int MAX_RETRY = 2;
     public static final String TAG = "AsyncWorker";
-    private static final int BUFFER_SIZE = 1024;
+    private static final int BUFFER_SIZE = 32 * 1024; // 32KB
 
 //    private final Task task;
 //    private final Chunk chunk;
@@ -44,13 +45,16 @@ public class AsyncWorker {
                 return;
             }
             Request.Builder requestBuilder = new Request.Builder().get().url(task.url);
-            if (!task.resumable) // support unresumable links
+            if (task.resumable) // support unresumable links
                 requestBuilder.header("Range", "bytes=" + chunk.begin + "-" + chunk.end);
             File chunkFile = new File(task.save_address, ChunksDataSource.getChunkFileName(chunk.id));
-            final Response response = okHttpClient.newCall(requestBuilder.build()).execute();
-            final FileOutputStream chunkOutStream = new FileOutputStream(chunkFile, true);
+            Response response = null;
+            FileOutputStream chunkOutStream = null;
             try {
-                if (!response.isSuccessful()) throw new IOException("Given URL response non-success status code: " + response.code() + ", " + response.message());
+                chunkOutStream = new FileOutputStream(chunkFile, true);
+                response = okHttpClient.newCall(requestBuilder.build()).execute();
+                if (!response.isSuccessful())
+                    throw new IOException("Given URL response non-success status code: " + response.code() + ", " + response.message());
                 InputStream inputStream = response.body().byteStream();
                 int len;
                 byte[] buffer = new byte[BUFFER_SIZE];
@@ -66,9 +70,15 @@ public class AsyncWorker {
                 }
                 chunk.completed = true;
                 emitter.onComplete();
+            } catch (InterruptedIOException ex) {
+                Timber.e("[%d, %d] Interrupted IO Exception", task.id, chunk.id);
+            } catch (Exception ex) {
+                emitter.onError(ex);
             } finally {
-                response.close();
-                chunkOutStream.close();
+                if (response != null)
+                    response.close();
+                if (chunkOutStream != null)
+                    chunkOutStream.close();
             }
         })
                 .doOnSubscribe(disposable -> Timber.d("[%d, %d] Start download chunk", task.id, chunk.id))

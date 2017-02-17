@@ -1,7 +1,5 @@
 package com.golshadi.majid.core.mainWorker;
 
-import android.util.Log;
-
 import com.golshadi.majid.Utils.helper.FileUtils;
 import com.golshadi.majid.core.chunkWorker.Moderator;
 import com.golshadi.majid.core.chunkWorker.Rebuilder;
@@ -102,8 +100,6 @@ public class AsyncStartDownload extends Thread {
                 // -->do nothing
                 break;
         }
-
-        return;
     }
 
     private void getTaskFileInfo(Task task) throws IOException {

@@ -10,16 +10,19 @@ import com.golshadi.majid.database.elements.Task;
 
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 import okhttp3.OkHttpClient;
 
 /**
  * Created by Majid Golshadi on 4/21/2014.
  */
-public class QueueModerator   
-			implements QueueObserver {
+public class QueueModerator
+        implements QueueObserver {
 
     public interface OnQueueChanged {
         void onQueueChanged(int downloading, int pending);
@@ -30,25 +33,24 @@ public class QueueModerator
     private final Moderator moderator;
     private int downloadTaskPerTime;
 
-    private final SparseArray<Task> uncompletedTasks;
+    private final Set<Integer> uncompletedTasks;
     private final SparseArray<Thread> downloaderList;
     private final List<WeakReference<OnQueueChanged>> listeners;
     private final OkHttpClient okHttpClient;
 
     public QueueModerator(TasksDataSource tasksDataSource, ChunksDataSource chunksDataSource,
                           Moderator localModerator, List<Task> tasks, int downloadPerTime,
-                          OkHttpClient okHttpClient){
+                          OkHttpClient okHttpClient) {
 
         this.tasksDataSource = tasksDataSource;
         this.chunksDataSource = chunksDataSource;
         this.moderator = localModerator;
         this.moderator.setQueueObserver(this);
         this.downloadTaskPerTime = downloadPerTime;
-        this.uncompletedTasks = new SparseArray<>();
-        for (Task task : tasks) {
-            uncompletedTasks.put(task.id, task);
-        }
-        
+
+        this.uncompletedTasks = new LinkedHashSet<>();
+        for (Task task : tasks) uncompletedTasks.add(task.id);
+
         this.downloaderList = new SparseArray<>();
         this.listeners = new ArrayList<>();
         this.okHttpClient = okHttpClient;
@@ -69,41 +71,53 @@ public class QueueModerator
         return this;
     }
 
-    public boolean checkExistTaskWithFileName(String fileName) {
-        for (int i = 0; i < uncompletedTasks.size(); i++) {
-            int key = uncompletedTasks.keyAt(i);
-            if (fileName.equals(uncompletedTasks.get(key).name))
-                return true;
-        }
-        return false;
-    }
+//    public boolean checkExistTaskWithFileName(String fileName) {
+//        for (int i = 0; i < uncompletedTasks.size(); i++) {
+//            int key = uncompletedTasks.keyAt(i);
+//            if (fileName.equals(uncompletedTasks.get(key).name))
+//                return true;
+//        }
+//        return false;
+//    }
 
     public QueueModerator addTask(Task task) {
-        this.uncompletedTasks.put(task.id, task);
+        synchronized (uncompletedTasks) {
+            this.uncompletedTasks.add(task.id);
+        }
         notifyListeners();
         return this;
     }
 
     public void removeTask(int token) {
-        this.uncompletedTasks.remove(token);
+        synchronized (uncompletedTasks) {
+            synchronized (downloaderList) {
+                this.downloaderList.remove(token);
+                this.uncompletedTasks.remove(token);
+            }
+        }
         notifyListeners();
     }
 
     public void startQueue() {
-        int location = 0;
         int startedTask = 0;
-        while (location < uncompletedTasks.size() &&
-                downloadTaskPerTime > downloaderList.size()) {
-            Task task = uncompletedTasks.get(uncompletedTasks.keyAt(location));
-            if (downloaderList.get(task.id) == null) {
-                Thread downloader =
-                        new AsyncStartDownload(tasksDataSource, chunksDataSource, moderator, task, okHttpClient);
-
-                downloaderList.put(task.id, downloader);
-                downloader.start();
-                startedTask ++;
+        synchronized (uncompletedTasks) {
+            synchronized (downloaderList) {
+                for (Integer taskId : uncompletedTasks) {
+                    if (downloaderList.size() >= downloadTaskPerTime) break;
+                    synchronized (tasksDataSource) {
+                        if (downloaderList.get(taskId) == null) {
+                            final Task task = tasksDataSource.getTaskInfo(taskId);
+                            final Thread downloader =
+                                    new AsyncStartDownload(tasksDataSource, chunksDataSource, moderator, task, okHttpClient);
+                            synchronized (downloaderList) {
+                                downloaderList.put(task.id, downloader);
+                            }
+                            downloader.start();
+                            startedTask++;
+                        }
+                    }
+                }
             }
-            location++;
         }
 
         if (startedTask != 0)
@@ -111,38 +125,50 @@ public class QueueModerator
     }
 
     public int getDownloadingCount() {
-        return downloaderList.size();
+        synchronized (downloaderList) {
+            return downloaderList.size();
+        }
     }
 
     public int getPendingTaskCount() {
-        return uncompletedTasks.size() - downloaderList.size();
+        synchronized (uncompletedTasks) {
+            synchronized (downloaderList) {
+                return uncompletedTasks.size() - downloaderList.size();
+            }
+        }
     }
 
-    public SparseArray<Task> getUncompletedTasks() {
-        return uncompletedTasks;
+    public Set<Integer> getUncompletedTasks() {
+        return Collections.unmodifiableSet(uncompletedTasks);
     }
 
     public boolean isDownloading(int taskId) {
-        return downloaderList.get(taskId) != null;
-    }
-
-    public void wakeUp(int taskID){
-        downloaderList.remove(taskID);
-        uncompletedTasks.remove(taskID);
-        notifyListeners();
-        startQueue();
-    }
-
-    public void pause(){
-        if (downloaderList.size() == 0) return;
-
-        for (int i = 0; i < downloaderList.size(); i++) {
-            int id = downloaderList.keyAt(i);
-            Task task = moderator.pause(id);
-            // update task state
-            uncompletedTasks.put(id, task);
+        synchronized (downloaderList) {
+            return downloaderList.get(taskId) != null;
         }
-        downloaderList.clear();
+    }
+
+    public void wakeUp(int taskID) {
+        synchronized (uncompletedTasks) {
+            uncompletedTasks.remove(taskID);
+        }
+        synchronized (downloaderList) {
+            downloaderList.remove(taskID);
+        }
+        startQueue();
+        notifyListeners();
+    }
+
+    public void pause() {
+        synchronized (downloaderList) {
+            for (int i = 0; i < downloaderList.size(); i++) {
+                int id = downloaderList.keyAt(i);
+                final Thread thread = downloaderList.get(id);
+                thread.interrupt();
+                moderator.pause(id);
+            }
+            downloaderList.clear();
+        }
         notifyListeners();
     }
 

@@ -65,85 +65,90 @@ public class Moderator {
         // start any of them as AsyncTask
 
         // fetch task chunk info
+        synchronized (tasksDataSource) {
+            task.state = TaskStates.DOWNLOADING;
+            tasksDataSource.update(task);
+        }
         List<Chunk> taskChunks = chunksDataSource.chunksRelatedTask(task.id);
-        ReportStructure rps = processReports.get(task.id);
-        if (rps == null)
-            rps = new ReportStructure();
-        processReports.put(task.id, rps);
-        rps.setObjectValues(task, taskChunks);
+        synchronized (processReports) {
+            ReportStructure rps = processReports.get(task.id);
+            if (rps == null) {
+                rps = new ReportStructure();
+                processReports.put(task.id, rps);
+            }
+            rps.setObjectValues(task, taskChunks);
+        }
 
         long downloaded;
         long totalSize;
-        if (taskChunks != null) {
 
-            // set task state to Downloading
-            // to lock start download again!
-            task.state = TaskStates.DOWNLOADING;
-            tasksDataSource.update(task);
+        // set task state to Downloading
+        // to lock start download again!
 
-            // get any chunk file size calculate
-            synchronized (workerList) {
-                for (Chunk chunk : taskChunks) {
-                    // chunk file must exist
-                    downloaded = FileUtils.size(task.save_address, ChunksDataSource.getChunkFileName(chunk.id));
-                    totalSize = chunk.end - chunk.begin + 1;
-                    chunk.begin = chunk.begin + downloaded;
 
-                    // chunk is downloaded completely
-                    if (!chunk.completed && downloaded == totalSize) chunk.completed = true;
+        // get any chunk file size calculate
+        synchronized (workerList) {
+            for (Chunk chunk : taskChunks) {
+                // chunk file must exist
+                downloaded = FileUtils.size(task.save_address, ChunksDataSource.getChunkFileName(chunk.id));
+                totalSize = chunk.end - chunk.begin + 1;
+                chunk.begin = chunk.begin + downloaded;
 
-                    Disposable chunkDownloaderDisposable =
-                            AsyncWorker.createAsyncWorker(task, chunk, chunksDataSource, this, okHttpClient)
-                                    .subscribeOn(Schedulers.io())
-                                    .subscribe();
-                    workerList.put(chunk.id, chunkDownloaderDisposable);
-                }
+                // chunk is downloaded completely
+                if (!chunk.completed && downloaded == totalSize) chunk.completed = true;
+
+                Disposable chunkDownloaderDisposable =
+                        AsyncWorker.createAsyncWorker(task, chunk, chunksDataSource, this, okHttpClient)
+                                .subscribeOn(Schedulers.io())
+                                .subscribe();
+                workerList.put(chunk.id, chunkDownloaderDisposable);
             }
-            // notify to developer------------------------------------------------------------
-            downloadManagerListener.OnDownloadStarted(task.id);
         }
+        // notify to developer------------------------------------------------------------
+        downloadManagerListener.OnDownloadStarted(task.id);
     }
 
     /*
      * pause all chunk thread related to one Task
      */
-    public Task pause(int taskID) {
+    public boolean pause(int taskID) {
         Timber.d("[%d] Pause task", taskID);
-        final Task task = tasksDataSource.getTaskInfo(taskID);
+        synchronized (tasksDataSource) {
+            final Task task = tasksDataSource.getTaskInfo(taskID);
+            if (task != null && task.state != TaskStates.PAUSED && task.state != TaskStates.ERROR
+                    && task.state != TaskStates.END && task.state != TaskStates.DOWNLOAD_FINISHED) {
+                // change task state
+                // save in DB
+                task.state = TaskStates.PAUSED;
+                tasksDataSource.update(task);
 
-        if (task != null && task.state != TaskStates.PAUSED && task.state != TaskStates.ERROR
-                && task.state != TaskStates.END) {
-            // pause task asyncWorker
-            // change task state
-            // save in DB
-            // notify developer
+                // pause task asyncWorker
+                // change task state
+                // save in DB
+                // notify developer
 
-            // pause task asyncWorker
-            List<Chunk> taskChunks =
-                    chunksDataSource.chunksRelatedTask(task.id);
-            synchronized (workerList) {
-                for (Chunk chunk : taskChunks) {
-                    final Disposable disposable = workerList.get(chunk.id);
-                    if (disposable != null) {
-                        disposable.dispose();
-                        workerList.remove(chunk.id);
+                // pause task asyncWorker
+                List<Chunk> taskChunks =
+                        chunksDataSource.chunksRelatedTask(task.id);
+                synchronized (workerList) {
+                    for (Chunk chunk : taskChunks) {
+                        final Disposable disposable = workerList.get(chunk.id);
+                        if (disposable != null) {
+                            disposable.dispose();
+                            workerList.remove(chunk.id);
+                        }
                     }
                 }
+
+                final ReportStructure rs = getReport(taskID);
+                if (rs != null) rs.setObjectValues(task, taskChunks);
+
+                // notify to developer------------------------------------------------------------
+                downloadManagerListener.OnDownloadPaused(task.id);
+                return true;
             }
-
-            // change task state
-            // save in DB
-            task.state = TaskStates.PAUSED;
-            tasksDataSource.update(task);
-
-            final ReportStructure rs = processReports.get(taskID);
-            if (rs != null) rs.setObjectValues(task, taskChunks);
-
-            // notify to developer------------------------------------------------------------
-            downloadManagerListener.OnDownloadPaused(task.id);
-
         }
-        return task;
+        return false;
     }
 
     /*
@@ -156,7 +161,7 @@ public class Moderator {
     public void process(int taskId, long byteRead) {
         downloadManagerListener.countBytesDownloaded(byteRead);
 
-        final ReportStructure report = processReports.get(taskId);
+        final ReportStructure report = getReport(taskId);
         double percent = -1;
         long downloadLength = report.increaseDownloadedLength(byteRead);
 
@@ -174,6 +179,14 @@ public class Moderator {
     }
 
     public void rebuild(Chunk chunk) {
+        final Task task;
+        synchronized (tasksDataSource) {
+            task = tasksDataSource.getTaskInfo(chunk.task_id);
+            // set state task state to finished
+            task.state = TaskStates.DOWNLOAD_FINISHED;
+            tasksDataSource.update(task);
+        }
+
         List<Chunk> taskChunks;
         synchronized (workerList) {
             workerList.remove(chunk.id);
@@ -184,10 +197,9 @@ public class Moderator {
                 }
             }
         }
-        final Task task = tasksDataSource.getTaskInfo(chunk.task_id);
-        // set state task state to finished
-        task.state = TaskStates.DOWNLOAD_FINISHED;
-        tasksDataSource.update(task);
+
+        final ReportStructure rs = getReport(task.id);
+        rs.setObjectValues(task, taskChunks);
 
         downloadManagerListener.OnDownloadFinished(task.id);
         Thread t = new Rebuilder(task, taskChunks, this);
@@ -195,6 +207,16 @@ public class Moderator {
     }
 
     public void reBuildIsDone(Task task, List<Chunk> taskChunks) {
+        synchronized (tasksDataSource) {
+            // change task row state
+            task.state = TaskStates.END;
+            task.notify = false;
+            tasksDataSource.update(task);
+            final ReportStructure rs = getReport(task.id);
+            rs.state = TaskStates.END;
+            rs.onChanged();
+        }
+
         // delete chunk row from chunk table
         for (Chunk chunk : taskChunks) {
             chunksDataSource.delete(chunk.id);
@@ -203,11 +225,6 @@ public class Moderator {
 
         // notify to developer------------------------------------------------------------
         downloadManagerListener.OnDownloadRebuildFinished(task.id);
-
-        // change task row state
-        task.state = TaskStates.END;
-        task.notify = false;
-        tasksDataSource.update(task);
 
         // notify to developer------------------------------------------------------------
         downloadManagerListener.OnDownloadCompleted(task.id);
@@ -223,10 +240,19 @@ public class Moderator {
 
     public void error(int taskId, String errorMessage) {
         pause(taskId);
-        Task task = tasksDataSource.getTaskInfo(taskId);
-        task.state = TaskStates.ERROR;
-        task.errorMessage = errorMessage;
-        tasksDataSource.update(task);
+
+        final Task task;
+        synchronized (tasksDataSource) {
+            task = tasksDataSource.getTaskInfo(taskId);
+            task.state = TaskStates.ERROR;
+            task.errorMessage = errorMessage;
+            task.notify = false;
+            tasksDataSource.update(task);
+        }
+
+        final ReportStructure rs = getReport(taskId);
+        rs.state = TaskStates.ERROR;
+        rs.onChanged();
 
         // clean up
         List<Chunk> taskChunks = chunksDataSource.chunksRelatedTask(task.id);
@@ -250,22 +276,26 @@ public class Moderator {
 
         downloadManagerListener.onDownloadError(taskId, errorMessage);
 
-        if (finishedDownloadQueueObserver != null) {
-            finishedDownloadQueueObserver.wakeUp(taskId);
-        }
+        wakeUpObserver(taskId);
     }
 
     public void putReport(ReportStructure rs) {
-        processReports.put(rs.id, rs);
+        synchronized (processReports) {
+            processReports.put(rs.id, rs);
+        }
     }
 
     public ReportStructure getReport(int taskId) {
-        return processReports.get(taskId);
+        synchronized (processReports) {
+            return processReports.get(taskId);
+        }
     }
 
     public void putAllReport(List<ReportStructure> reportStructures) {
-        for (ReportStructure reportStructure : reportStructures) {
-            processReports.put(reportStructure.id, reportStructure);
+        synchronized (processReports) {
+            for (ReportStructure reportStructure : reportStructures) {
+                processReports.put(reportStructure.id, reportStructure);
+            }
         }
     }
 }

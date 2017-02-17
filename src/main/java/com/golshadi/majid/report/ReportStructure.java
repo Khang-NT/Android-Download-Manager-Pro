@@ -1,6 +1,7 @@
 package com.golshadi.majid.report;
 
 import android.support.annotation.Nullable;
+import android.support.annotation.RestrictTo;
 
 import com.golshadi.majid.Utils.helper.FileUtils;
 import com.golshadi.majid.core.enums.TaskStates;
@@ -8,14 +9,19 @@ import com.golshadi.majid.database.ChunksDataSource;
 import com.golshadi.majid.database.elements.Chunk;
 import com.golshadi.majid.database.elements.Task;
 
+import java.lang.ref.WeakReference;
 import java.util.List;
 
-import io.reactivex.subjects.PublishSubject;
+import timber.log.Timber;
 
 /**
  * Created by Majid Golshadi on 4/10/2014.
  */
 public class ReportStructure {
+
+    public interface OnChanged {
+        void onChanged(ReportStructure rs);
+    }
 
     public int id;
     public String fileName;
@@ -30,18 +36,28 @@ public class ReportStructure {
     public boolean priority;
     public @Nullable String jsonExtra;
     public @Nullable String errorMessage;
-    public final PublishSubject<ReportStructure> downloadProgressObservable;
-
+    private WeakReference<OnChanged> onChangedWeakReference;
+    private int threshold = 0;
+    private long lastDownloadedLength = 0;
 
     public ReportStructure() {
-        downloadProgressObservable = PublishSubject.create();
     }
 
     public long increaseDownloadedLength(long n) {
-        downloadedLength += n;
+        this.downloadedLength += n;
         this.percent = this.fileSize > 0 ? downloadedLength * 100 / fileSize : 0;
-        downloadProgressObservable.onNext(this);
+
+        if (downloadedLength - lastDownloadedLength > threshold) {
+            lastDownloadedLength = downloadedLength;
+            onChanged();
+        }
         return downloadedLength;
+    }
+
+    public synchronized void setOnChangedListener(OnChanged onChanged, int threshold) {
+        Timber.d("ReportStructure.setOnChangedListener " + onChanged);
+        this.onChangedWeakReference = new WeakReference<>(onChanged);
+        this.threshold = threshold;
     }
 
     public long getTotalSize() {
@@ -66,7 +82,9 @@ public class ReportStructure {
         this.errorMessage = task.errorMessage;
 
         calculatePercent(task, taskChunks);
-        downloadProgressObservable.onNext(this);
+
+        lastDownloadedLength = downloadedLength;
+        onChanged();
 
         return this;
     }
@@ -98,4 +116,11 @@ public class ReportStructure {
         }
     }
 
+    @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+    public void onChanged() {
+        if (onChangedWeakReference != null) {
+            final OnChanged onChanged = onChangedWeakReference.get();
+            if (onChanged != null) onChanged.onChanged(this);
+        }
+    }
 }

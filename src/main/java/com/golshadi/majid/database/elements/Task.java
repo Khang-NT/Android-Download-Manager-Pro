@@ -145,7 +145,7 @@ public class Task implements Parcelable {
         contentValues.put(TASKS.COLUMN_SAVE_ADDRESS, save_address);
         contentValues.put(TASKS.COLUMN_PRIORITY, priority);
         contentValues.put(TASKS.COLUMN_EXTRA_JSON, jsonExtra);
-
+        contentValues.put(TASKS.COLUMN_ERROR_MESSAGE, errorMessage);
         return contentValues;
     }
 
