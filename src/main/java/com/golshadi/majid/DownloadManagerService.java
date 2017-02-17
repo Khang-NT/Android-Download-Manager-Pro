@@ -88,7 +88,7 @@ public class DownloadManagerService extends Service {
 
         downloadManagerPro = new DownloadManagerPro(this, downloadTaskPerTime);
 
-        WifiManager wifiManager = (WifiManager)getSystemService(Context.WIFI_SERVICE);
+        WifiManager wifiManager = (WifiManager)getApplicationContext().getSystemService(Context.WIFI_SERVICE);
         wifiLock = wifiManager.createWifiLock(TAG);
 
         handlerThread = new HandlerThread("download_manager_handler");
@@ -118,16 +118,10 @@ public class DownloadManagerService extends Service {
     }
 
     public void startQueue() {
-        if (!wifiLock.isHeld()) {
-            wifiLock.acquire();
-        }
         downloadManagerPro.startQueueDownload();
     }
 
     public void pauseQueue() {
-        if (wifiLock.isHeld()) {
-            wifiLock.release();
-        }
         downloadManagerPro.pauseQueueDownload();
     }
 
@@ -308,6 +302,8 @@ public class DownloadManagerService extends Service {
             String title = "Download manager " + getSpeedAsString(speed);
 
             if (downloadingCount != 0) {
+                if (!wifiLock.isHeld()) wifiLock.acquire();
+
                 remoteViews.setTextViewText(R.id.status, status);
                 remoteViews.setTextViewText(R.id.title, title);
                 remoteViews.setOnClickPendingIntent(R.id.action, getPauseQueuePendingIntent());
@@ -316,7 +312,8 @@ public class DownloadManagerService extends Service {
 
                 startForeground(DOWNLOAD_MANAGER_NOTIFICATION_ID, builder.build());
             } else {
-                pauseQueue();
+                if (wifiLock.isHeld()) wifiLock.release();
+
                 stopForeground(false);
 
                 remoteViews.setTextViewText(R.id.status, status);
