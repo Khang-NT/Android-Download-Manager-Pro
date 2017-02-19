@@ -85,9 +85,11 @@ public class AsyncWorker {
                 .doOnDispose(() -> Timber.d("[%d, %d] Disposed chunk download", task.id, chunk.id))
                 .doOnError(error -> Timber.e("[%d, %d] Download chunk error", task.id, chunk.id))
                 .doOnComplete(() -> {
-                    Timber.d("[%d, %d] Download chunk completed", task.id, chunk.id);
-                    chunksDataSource.markChunkAsCompleted(chunk.id);
-                    moderator.rebuild(chunk);
+                    if (chunk.completed) {
+                        Timber.d("[%d, %d] Download chunk completed", task.id, chunk.id);
+                        chunksDataSource.markChunkAsCompleted(chunk);
+                        moderator.rebuild(chunk);
+                    }
                 })
                 .retry(MAX_RETRY)
                 .onErrorResumeNext(error -> {

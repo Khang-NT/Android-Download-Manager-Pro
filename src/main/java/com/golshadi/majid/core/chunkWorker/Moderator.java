@@ -179,14 +179,6 @@ public class Moderator {
     }
 
     public void rebuild(Chunk chunk) {
-        final Task task;
-        synchronized (tasksDataSource) {
-            task = tasksDataSource.getTaskInfo(chunk.task_id);
-            // set state task state to finished
-            task.state = TaskStates.DOWNLOAD_FINISHED;
-            tasksDataSource.update(task);
-        }
-
         List<Chunk> taskChunks;
         synchronized (workerList) {
             workerList.remove(chunk.id);
@@ -196,6 +188,14 @@ public class Moderator {
                     return;
                 }
             }
+        }
+
+        final Task task;
+        synchronized (tasksDataSource) {
+            task = tasksDataSource.getTaskInfo(chunk.task_id);
+            // set state task state to finished
+            task.state = TaskStates.DOWNLOAD_FINISHED;
+            tasksDataSource.update(task);
         }
 
         final ReportStructure rs = getReport(task.id);

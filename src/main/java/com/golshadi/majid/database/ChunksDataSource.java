@@ -86,10 +86,10 @@ public class ChunksDataSource {
         return false;
     }
 
-    public void markChunkAsCompleted(int chunkId) {
+    public void markChunkAsCompleted(Chunk chunk) {
         ContentValues contentValues = new ContentValues();
-        contentValues.put(CHUNKS.COLUMN_COMPLETED, 1);
-        database.update(TABLES.CHUNKS, contentValues, CHUNKS.COLUMN_ID + " == " + chunkId, null);
+        contentValues.put(CHUNKS.COLUMN_COMPLETED, chunk.completed ? 1 : 0);
+        database.update(TABLES.CHUNKS, contentValues, CHUNKS.COLUMN_ID + " == " + chunk.id, null);
     }
 
     public void close() {

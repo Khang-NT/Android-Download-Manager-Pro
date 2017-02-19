@@ -27,7 +27,7 @@
         android:layout_toRightOf="@+id/icon"
         android:layout_toStartOf="@+id/action"
         android:gravity="center_vertical"
-        android:textColor="#000000"
+        android:textColor="?android:attr/textColorPrimary"
         android:textSize="14sp"
         tools:text="Download Manager [1231 KB/s]"/>
 

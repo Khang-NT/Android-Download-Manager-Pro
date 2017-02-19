@@ -254,8 +254,9 @@ public class DownloadManagerService extends Service {
 
             builder = new NotificationCompat.Builder(DownloadManagerService.this)
                     .setSmallIcon(R.drawable.notification_downloader_icon)
-                    .setContent(remoteViews)
+                    .setCustomContentView(remoteViews)
                     .setAutoCancel(false)
+                    .setStyle(new android.support.v7.app.NotificationCompat.DecoratedCustomViewStyle())
                     .setTicker("Start download...");
 
             Intent intent = new Intent(ACTION_START_DOWNLOAD_MANAGER_ACTIVITY);
