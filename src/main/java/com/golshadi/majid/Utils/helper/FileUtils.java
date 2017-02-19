@@ -12,9 +12,9 @@ public class FileUtils {
         File folder = new File(folderPath);
         File file = new File(folder, fileName);
         if (!(folder.mkdirs() || folder.isDirectory()))
-            throw new IllegalArgumentException("Invalid directory: " + folder);
+            throw new IOException("Invalid directory: " + folder);
         if (!file.createNewFile())
-            throw new IllegalStateException("Can't create file: " + file);
+            throw new IOException("Can't create file: " + file);
         return file;
     }
 
