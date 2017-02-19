@@ -132,6 +132,7 @@ public class DownloadManagerPro {
 
     public void setDownloadTaskPerTime(int downloadTaskPerTime) {
         queue.setDownloadTaskPerTime(downloadTaskPerTime);
+        if (isQueueStarted()) queue.startQueue();
     }
 
     public void startQueueDownload() {

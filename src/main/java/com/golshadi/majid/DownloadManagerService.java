@@ -22,6 +22,8 @@ import com.golshadi.majid.core.DownloadManagerPro;
 import com.golshadi.majid.core.mainWorker.QueueModerator;
 import com.golshadi.majid.report.listener.DownloadSpeedListener;
 
+import timber.log.Timber;
+
 /**
  * Created by Khang NT on 1/24/17.
  * Email: khang.neon.1997@gmail.com
@@ -38,11 +40,16 @@ public class DownloadManagerService extends Service {
     public static final String TASK_DATA = "task_data";
 
     public static final String ACTION_START = "download.manager.action.start";
+    public static final String ACTION_UPDATE_SETTINGS = "download.manager.action.update_settings";
     public static final String ACTION_START_QUEUE = "download.manager.start.queue";
     public static final String ACTION_PAUSE_QUEUE = "download.manager.pause.queue";
     public static final String ACTION_REMOVE_TASK = "download.manager.remove.task";
     public static final String ACTION_ADD_TASK = "download.manager.add.task";
     public static final String ACTION_START_DOWNLOAD_MANAGER_ACTIVITY = "download.manager.open.activity";
+    public static final String CONCURRENCY_DOWNLOAD_KEY = "concurrency_download";
+    public static final String MAX_CHUNKS_KEY = "max_chunks";
+    public static final int DEFAULT_CONCURRENCY_DOWNLOAD = 2;
+    public static final int DEFAULT_MAX_CHUNKS = 8;
     private HandlerThread handlerThread;
 
     public static DownloadManagerService getService(IBinder binder) {
@@ -56,6 +63,14 @@ public class DownloadManagerService extends Service {
         Intent downloadIntent = new Intent(context, DownloadManagerService.class);
         downloadIntent.setAction(DownloadManagerService.ACTION_ADD_TASK);
         downloadIntent.putExtra(DownloadManagerService.TASK_INFO_KEY, taskInfo);
+        context.startService(downloadIntent);
+    }
+
+    public static void updateSetting(Context context, int concurrencyDownload, int maxChunks) {
+        Intent downloadIntent = new Intent(context, DownloadManagerService.class);
+        downloadIntent.setAction(ACTION_UPDATE_SETTINGS);
+        downloadIntent.putExtra(CONCURRENCY_DOWNLOAD_KEY, concurrencyDownload);
+        downloadIntent.putExtra(MAX_CHUNKS_KEY, maxChunks);
         context.startService(downloadIntent);
     }
 
@@ -89,7 +104,7 @@ public class DownloadManagerService extends Service {
         super.onCreate();
         sharedPreferences = getSharedPreferences(DOWNLOAD_MANAGER_SERVICE_PREFS, Context.MODE_PRIVATE);
 
-        downloadTaskPerTime = sharedPreferences.getInt(DOWNLOAD_TASK_PER_TIME_KEY, 1);
+        downloadTaskPerTime = sharedPreferences.getInt(DOWNLOAD_TASK_PER_TIME_KEY, 2);
         chunkCount = sharedPreferences.getInt(CHUNK_COUNT_KEY, 8);
 
         downloadManagerPro = new DownloadManagerPro(this, downloadTaskPerTime);
@@ -155,6 +170,12 @@ public class DownloadManagerService extends Service {
             pauseQueue();
         } else if (ACTION_START_QUEUE.equals(intent.getAction())) {
             startQueue();
+        } else if (ACTION_UPDATE_SETTINGS.equals(intent.getAction())) {
+            int concurrencyDownload = intent.getIntExtra(CONCURRENCY_DOWNLOAD_KEY, DEFAULT_CONCURRENCY_DOWNLOAD);
+            int maxChunks = intent.getIntExtra(MAX_CHUNKS_KEY, DEFAULT_MAX_CHUNKS);
+            setDownloadTaskPerTime(concurrencyDownload);
+            setChunkCount(maxChunks);
+            Timber.d("Change setting, concurrency download: %d, max chunks: %d", concurrencyDownload, maxChunks);
         }
         return START_NOT_STICKY;
     }
