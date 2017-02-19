@@ -54,17 +54,8 @@ public class FileUtils {
         return fileOut;
     }
 
-    public static FileInputStream getInputStream(String folder, String fileName){
-        FileInputStream fileIn = null;
-        try {
-            fileIn = new FileInputStream(
-                    new File(folder, fileName));
-
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
-        }
-
-        return fileIn;
+    public static FileInputStream getInputStream(String folder, String fileName) throws FileNotFoundException {
+        return new FileInputStream(new File(folder, fileName));
     }
 
 //    public static String address(String folder, String file){

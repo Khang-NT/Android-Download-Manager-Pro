@@ -261,6 +261,7 @@ public class DownloadManagerService extends Service {
             Intent intent = new Intent(ACTION_START_DOWNLOAD_MANAGER_ACTIVITY);
             intent.setPackage(getPackageName());
             if (getPackageManager().queryIntentActivities(intent, PackageManager.MATCH_DEFAULT_ONLY).size() > 0) {
+                intent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
                 PendingIntent contentIntent = PendingIntent.getActivity(DownloadManagerService.this,
                         PENDING_INTENT_REQUEST_CODE, intent, PendingIntent.FLAG_UPDATE_CURRENT);
                 builder.setContentIntent(contentIntent);

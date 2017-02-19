@@ -17,9 +17,9 @@ import java.util.List;
  */
 public class Rebuilder extends Thread{
 
-    List<Chunk> taskChunks;
-    Task task;
-    Moderator observer;
+    final List<Chunk> taskChunks;
+    final Task task;
+    final Moderator observer;
 
     public Rebuilder(Task task, List<Chunk> taskChunks, Moderator moderator){
         this.taskChunks = taskChunks;
@@ -47,8 +47,14 @@ public class Rebuilder extends Thread{
         byte[] readBuffer = new byte[1024];
         int read;
         for (Chunk chunk : taskChunks) {
-            FileInputStream chFileIn =
-                    FileUtils.getInputStream(task.save_address, ChunksDataSource.getChunkFileName(chunk.id));
+            FileInputStream chFileIn;
+            try {
+                chFileIn = FileUtils.getInputStream(task.save_address, ChunksDataSource.getChunkFileName(chunk.id));
+            } catch (FileNotFoundException e) {
+                e.printStackTrace();
+                observer.error(task.id, "Chunk file not found");
+                return;
+            }
 
             try {
                 while ((read = chFileIn.read(readBuffer)) > 0) {
