@@ -53,6 +53,13 @@ public class DownloadManagerService extends Service {
         throw new IllegalArgumentException("Invalid binder");
     }
 
+    public static void addTask(Context context, TaskInfo taskInfo) {
+        Intent downloadIntent = new Intent(context, DownloadManagerService.class);
+        downloadIntent.setAction(DownloadManagerService.ACTION_ADD_TASK);
+        downloadIntent.putExtra(DownloadManagerService.TASK_INFO_KEY, taskInfo);
+        context.startService(downloadIntent);
+    }
+
     private class Binder extends android.os.Binder {
         public DownloadManagerService getService() {
             return DownloadManagerService.this;
