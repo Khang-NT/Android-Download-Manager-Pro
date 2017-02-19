@@ -75,10 +75,13 @@ public class AsyncWorker {
             } catch (Exception ex) {
                 emitter.onError(ex);
             } finally {
-                if (response != null)
-                    response.close();
-                if (chunkOutStream != null)
-                    chunkOutStream.close();
+                try {
+                    if (response != null)
+                        response.close();
+                    if (chunkOutStream != null)
+                        chunkOutStream.close();
+                } catch (Exception ignore) {
+                }
             }
         })
                 .doOnSubscribe(disposable -> Timber.d("[%d, %d] Start download chunk", task.id, chunk.id))
