@@ -16,8 +16,7 @@ import android.os.Parcel;
 import android.os.Parcelable;
 import android.support.v4.app.NotificationCompat;
 import android.support.v4.app.NotificationManagerCompat;
-import android.view.View;
-import android.widget.RemoteViews;
+import android.support.v4.content.ContextCompat;
 
 import com.golshadi.majid.core.DownloadManagerPro;
 import com.golshadi.majid.core.mainWorker.QueueModerator;
@@ -243,20 +242,20 @@ public class DownloadManagerService extends Service {
         private final int PENDING_INTENT_REQUEST_CODE = 1;
 
         private final NotificationManagerCompat notificationManager;
-        private final RemoteViews remoteViews;
+        private final NotificationCompat.Action action;
         private final NotificationCompat.Builder builder;
         private long speed;
 
         public HandlerCallback() {
             notificationManager = NotificationManagerCompat.from(DownloadManagerService.this);
 
-            remoteViews = new RemoteViews(getPackageName(), R.layout.notification_download_manager);
+            action = new NotificationCompat.Action(R.drawable.ic_start_queue, "Resume", getStartQueuePendingIntent());
 
             builder = new NotificationCompat.Builder(DownloadManagerService.this)
                     .setSmallIcon(R.drawable.notification_downloader_icon)
-                    .setCustomContentView(remoteViews)
+                    .setColor(ContextCompat.getColor(getApplicationContext(), R.color.notification_icon))
+                    .addAction(action)
                     .setAutoCancel(false)
-                    .setStyle(new android.support.v7.app.NotificationCompat.DecoratedCustomViewStyle())
                     .setTicker("Start download...");
 
             Intent intent = new Intent(ACTION_START_DOWNLOAD_MANAGER_ACTIVITY);
@@ -301,7 +300,7 @@ public class DownloadManagerService extends Service {
         public void onSpeedChanged(long bytesPerSec) {
             speed = bytesPerSec;
             String title = "Download manager " + getSpeedAsString(speed);
-            remoteViews.setTextViewText(R.id.title, title);
+            builder.setContentTitle(title);
             notificationManager.notify(DOWNLOAD_MANAGER_NOTIFICATION_ID, builder.build());
         }
 
@@ -313,24 +312,27 @@ public class DownloadManagerService extends Service {
             if (downloadingCount != 0) {
                 if (!wifiLock.isHeld()) wifiLock.acquire();
 
-                remoteViews.setTextViewText(R.id.status, status);
-                remoteViews.setTextViewText(R.id.title, title);
-                remoteViews.setOnClickPendingIntent(R.id.action, getPauseQueuePendingIntent());
-                remoteViews.setImageViewResource(R.id.action, R.drawable.ic_pause_queue);
-                remoteViews.setViewVisibility(R.id.action, View.VISIBLE);
+                builder.setContentTitle(title)
+                        .setContentText(status);
+                if (builder.mActions.size() == 0) builder.mActions.add(action);
+                action.icon = R.drawable.ic_pause_queue;
+                action.actionIntent = getPauseQueuePendingIntent();
+                action.title = "Pause";
 
                 startForeground(DOWNLOAD_MANAGER_NOTIFICATION_ID, builder.build());
             } else {
                 if (wifiLock.isHeld()) wifiLock.release();
 
-                stopForeground(false);
+                stopForeground(true);
 
-                remoteViews.setTextViewText(R.id.status, status);
-                remoteViews.setOnClickPendingIntent(R.id.action, getStartQueuePendingIntent());
-                remoteViews.setImageViewResource(R.id.action, R.drawable.ic_start_queue);
+                builder.setContentTitle(title).setContentText(status);
+                action.title = "Resume";
+                action.icon = R.drawable.ic_start_queue;
+                action.actionIntent = getStartQueuePendingIntent();
 
-                if (pendingTaskCount == 0)
-                    remoteViews.setViewVisibility(R.id.action, View.INVISIBLE);
+                if (pendingTaskCount == 0) {
+                    builder.mActions.clear();
+                }
 
                 builder.setOngoing(false);
                 notificationManager.notify(DOWNLOAD_MANAGER_NOTIFICATION_ID, builder.build());
