@@ -34,7 +34,6 @@ public class AsyncWorker {
 //    public boolean stop = false;
 
 
-    @SuppressWarnings("ThrowFromFinallyBlock")
     public synchronized static Completable createAsyncWorker(final Task task, final Chunk chunk,
                                                              final ChunksDataSource chunksDataSource,
                                                              final Moderator moderator,
