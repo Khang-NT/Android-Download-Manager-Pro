@@ -13,6 +13,7 @@ import com.golshadi.majid.database.elements.Task;
 import com.golshadi.majid.report.ReportStructure;
 import com.golshadi.majid.report.listener.DownloadManagerListenerModerator;
 
+import java.io.File;
 import java.util.List;
 
 import io.reactivex.disposables.Disposable;
@@ -265,13 +266,11 @@ public class Moderator {
             chunksDataSource.delete(chunk.id);
         }
 
-        long size = FileUtils.size(task.save_address, task.name);
-        if (size > 0) {
-            try {
+        try {
+            if (new File(task.save_address, task.name).exists())
                 FileUtils.delete(task.save_address, task.name);
-            } catch (Exception ex) {
-                Timber.e(ex, "[%d] Clean up task file after error", taskId);
-            }
+        } catch (Exception ex) {
+            Timber.e(ex, "[%d] Clean up task file after error", taskId);
         }
 
         downloadManagerListener.onDownloadError(taskId, errorMessage);
