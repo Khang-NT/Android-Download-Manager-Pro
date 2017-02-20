@@ -76,10 +76,8 @@ public class AsyncWorker {
                 emitter.onError(ex);
             } finally {
                 try {
-                    if (response != null)
-                        response.close();
-                    if (chunkOutStream != null)
-                        chunkOutStream.close();
+                    if (chunkOutStream != null)chunkOutStream.close();
+                    if (response != null) response.close();
                 } catch (Exception ignore) {
                 }
             }
