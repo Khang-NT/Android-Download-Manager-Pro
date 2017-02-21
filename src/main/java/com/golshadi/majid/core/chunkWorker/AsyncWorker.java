@@ -8,9 +8,10 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InterruptedIOException;
 
 import io.reactivex.Completable;
+import okhttp3.Call;
+import okhttp3.Callback;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
@@ -47,39 +48,47 @@ public class AsyncWorker {
             if (task.resumable) // support unresumable links
                 requestBuilder.header("Range", "bytes=" + chunk.begin + "-" + chunk.end);
             File chunkFile = new File(task.save_address, ChunksDataSource.getChunkFileName(chunk.id));
-            Response response = null;
-            FileOutputStream chunkOutStream = null;
-            try {
-                chunkOutStream = new FileOutputStream(chunkFile, true);
-                response = okHttpClient.newCall(requestBuilder.build()).execute();
-                if (!response.isSuccessful())
-                    throw new IOException("Given URL response non-success status code: " + response.code() + ", " + response.message());
-                InputStream inputStream = response.body().byteStream();
-                int len;
-                byte[] buffer = new byte[BUFFER_SIZE];
-                while (true) {
-                    // cancelled
+            okHttpClient.newCall(requestBuilder.build()).enqueue(new Callback() {
+                @Override
+                public void onFailure(Call call, IOException e) {
+                    emitter.onError(e);
+                }
+
+                @Override
+                public void onResponse(Call call, Response response) throws IOException {
                     if (emitter.isDisposed()) return;
+                    FileOutputStream chunkOutStream = null;
+                    try {
+                        if (!response.isSuccessful()) {
+                            emitter.onError(new IOException("Given URL response non-success status code: "
+                                    + response.code() + ", " + response.message()));
+                            return;
+                        }
+                        chunkOutStream = new FileOutputStream(chunkFile, true);
+                        InputStream inputStream = response.body().byteStream();
+                        int len;
+                        byte[] buffer = new byte[BUFFER_SIZE];
+                        while (true) {
+                            // cancelled
+                            if (emitter.isDisposed()) return;
 
-                    // completed
-                    if ((len = inputStream.read(buffer, 0, BUFFER_SIZE)) < 0) break;
+                            // completed
+                            if ((len = inputStream.read(buffer, 0, BUFFER_SIZE)) < 0) break;
 
-                    chunkOutStream.write(buffer, 0, len);
-                    moderator.process(task.id, len);
+                            chunkOutStream.write(buffer, 0, len);
+                            moderator.process(task.id, len);
+                        }
+                        chunk.completed = true;
+                        emitter.onComplete();
+                    } finally {
+                        try {
+                            response.close();
+                            if (chunkOutStream != null) chunkOutStream.close();
+                        } catch (Exception ignore){
+                        }
+                    }
                 }
-                chunk.completed = true;
-                emitter.onComplete();
-            } catch (InterruptedIOException ex) {
-                Timber.e("[%d, %d] Interrupted IO Exception", task.id, chunk.id);
-            } catch (Exception ex) {
-                emitter.onError(ex);
-            } finally {
-                try {
-                    if (chunkOutStream != null)chunkOutStream.close();
-                    if (response != null) response.close();
-                } catch (Exception ignore) {
-                }
-            }
+            });
         })
                 .doOnSubscribe(disposable -> Timber.d("[%d, %d] Start download chunk", task.id, chunk.id))
                 .doOnDispose(() -> Timber.d("[%d, %d] Disposed chunk download", task.id, chunk.id))
