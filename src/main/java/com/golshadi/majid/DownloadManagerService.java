@@ -154,28 +154,30 @@ public class DownloadManagerService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        if (ACTION_ADD_TASK.equals(intent.getAction())) {
-            TaskInfo taskInfo = intent.getParcelableExtra(TASK_INFO_KEY);
-            addTask(taskInfo.url, taskInfo.fileName, taskInfo.sdCardFolder, taskInfo.overwrite, taskInfo.jsonExtra,
-                    taskInfo.fileSize);
-            downloadManagerPro.startQueueDownload();
-            handler.sendEmptyMessage(0);
-        } else if (ACTION_REMOVE_TASK.equals(intent.getAction())) {
-            int taskId = intent.getIntExtra(TASK_ID_KEY, -1);
-            if (taskId == -1)
-                throw new IllegalArgumentException("Task id not found: " + intent.getAction());
-            downloadManagerPro.delete(taskId, true);
-            handler.sendEmptyMessage(0);
-        } else if (ACTION_PAUSE_QUEUE.equals(intent.getAction())) {
-            pauseQueue();
-        } else if (ACTION_START_QUEUE.equals(intent.getAction())) {
-            startQueue();
-        } else if (ACTION_UPDATE_SETTINGS.equals(intent.getAction())) {
-            int concurrencyDownload = intent.getIntExtra(CONCURRENCY_DOWNLOAD_KEY, DEFAULT_CONCURRENCY_DOWNLOAD);
-            int maxChunks = intent.getIntExtra(MAX_CHUNKS_KEY, DEFAULT_MAX_CHUNKS);
-            setDownloadTaskPerTime(concurrencyDownload);
-            setChunkCount(maxChunks);
-            Timber.d("Change setting, concurrency download: %d, max chunks: %d", concurrencyDownload, maxChunks);
+        if (intent != null) {
+            if (ACTION_ADD_TASK.equals(intent.getAction())) {
+                TaskInfo taskInfo = intent.getParcelableExtra(TASK_INFO_KEY);
+                addTask(taskInfo.url, taskInfo.fileName, taskInfo.sdCardFolder, taskInfo.overwrite, taskInfo.jsonExtra,
+                        taskInfo.fileSize);
+                downloadManagerPro.startQueueDownload();
+                handler.sendEmptyMessage(0);
+            } else if (ACTION_REMOVE_TASK.equals(intent.getAction())) {
+                int taskId = intent.getIntExtra(TASK_ID_KEY, -1);
+                if (taskId == -1)
+                    throw new IllegalArgumentException("Task id not found: " + intent.getAction());
+                downloadManagerPro.delete(taskId, true);
+                handler.sendEmptyMessage(0);
+            } else if (ACTION_PAUSE_QUEUE.equals(intent.getAction())) {
+                pauseQueue();
+            } else if (ACTION_START_QUEUE.equals(intent.getAction())) {
+                startQueue();
+            } else if (ACTION_UPDATE_SETTINGS.equals(intent.getAction())) {
+                int concurrencyDownload = intent.getIntExtra(CONCURRENCY_DOWNLOAD_KEY, DEFAULT_CONCURRENCY_DOWNLOAD);
+                int maxChunks = intent.getIntExtra(MAX_CHUNKS_KEY, DEFAULT_MAX_CHUNKS);
+                setDownloadTaskPerTime(concurrencyDownload);
+                setChunkCount(maxChunks);
+                Timber.d("Change setting, concurrency download: %d, max chunks: %d", concurrencyDownload, maxChunks);
+            }
         }
         return START_NOT_STICKY;
     }
