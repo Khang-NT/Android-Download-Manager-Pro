@@ -13,15 +13,16 @@ import com.golshadi.majid.database.elements.Task;
 import java.lang.ref.WeakReference;
 import java.util.concurrent.TimeUnit;
 
-import io.reactivex.Observable;
-import io.reactivex.disposables.Disposable;
-import io.reactivex.functions.Consumer;
-import io.reactivex.schedulers.Schedulers;
+import rx.Observable;
+import rx.Subscription;
+import rx.functions.Action1;
+import rx.schedulers.Schedulers;
+
 
 /**
  * Created by Majid Golshadi on 4/21/2014.
  */
-public class DownloadManagerListenerModerator implements Consumer<Long> {
+public class DownloadManagerListenerModerator implements Action1<Long> {
 
     public static final String TAG = "DownloadListener";
     public static final int TIMER_INTERVAL = 1000;
@@ -29,7 +30,7 @@ public class DownloadManagerListenerModerator implements Consumer<Long> {
     private final TasksDataSource tasksDataSource;
     private WeakReference<DownloadManagerListener> downloadManagerListenerWeakReference;
     private WeakReference<DownloadSpeedListener> downloadSpeedListener;
-    private Disposable disposable;
+    private Subscription subscription;
     private long accumulateByteDownloaded;
     private long speed;
 
@@ -50,11 +51,11 @@ public class DownloadManagerListenerModerator implements Consumer<Long> {
             this.downloadSpeedListener = new WeakReference<>(listener);
             this.accumulateByteDownloaded = 0;
             synchronized (context) {
-                if (disposable != null && !disposable.isDisposed()) {
-                    disposable.dispose();
-                    disposable = null;
+                if (subscription != null && !subscription.isUnsubscribed()) {
+                    subscription.unsubscribe();
+                    subscription = null;
                 }
-                this.disposable = Observable.interval(TIMER_INTERVAL, TimeUnit.MILLISECONDS, Schedulers.computation())
+                this.subscription = Observable.interval(TIMER_INTERVAL, TimeUnit.MILLISECONDS, Schedulers.computation())
                         .subscribe(this);
             }
         } else {
@@ -155,15 +156,15 @@ public class DownloadManagerListenerModerator implements Consumer<Long> {
     }
 
     @Override
-    public void accept(Long aLong) throws Exception {
+    public void call(Long aLong) {
         long tmp = accumulateByteDownloaded * 1000 / TIMER_INTERVAL;
         accumulateByteDownloaded = 0;
         synchronized (context) {
             final DownloadSpeedListener listener = downloadSpeedListener == null ? null : downloadSpeedListener.get();
             if (listener == null) {
-                if (disposable != null && !disposable.isDisposed()) {
-                    disposable.dispose();
-                    disposable = null;
+                if (subscription != null && !subscription.isUnsubscribed()) {
+                    subscription.unsubscribe();
+                    subscription = null;
                 }
                 return;
             }

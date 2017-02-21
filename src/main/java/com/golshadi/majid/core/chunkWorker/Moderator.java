@@ -16,9 +16,9 @@ import com.golshadi.majid.report.listener.DownloadManagerListenerModerator;
 import java.io.File;
 import java.util.List;
 
-import io.reactivex.disposables.Disposable;
-import io.reactivex.schedulers.Schedulers;
 import okhttp3.OkHttpClient;
+import rx.Subscription;
+import rx.schedulers.Schedulers;
 import timber.log.Timber;
 
 /**
@@ -38,7 +38,7 @@ public class Moderator {
     private final TasksDataSource tasksDataSource;    // query on task table
     protected final DownloadManagerListenerModerator downloadManagerListener;
 
-    private final SparseArray<Disposable> workerList;          // chunk downloader list
+    private final SparseArray<Subscription> workerList;          // chunk downloader list
     private final SparseArray<ReportStructure> processReports;  // to save download percent
 
     private QueueModerator finishedDownloadQueueObserver;
@@ -98,7 +98,7 @@ public class Moderator {
                 // chunk is downloaded completely
                 if (!chunk.completed && downloaded == totalSize) chunk.completed = true;
 
-                Disposable chunkDownloaderDisposable =
+                Subscription chunkDownloaderDisposable =
                         AsyncWorker.createAsyncWorker(task, chunk, chunksDataSource, this, okHttpClient)
                                 .subscribeOn(Schedulers.io())
                                 .subscribe();
@@ -133,9 +133,9 @@ public class Moderator {
                         chunksDataSource.chunksRelatedTask(task.id);
                 synchronized (workerList) {
                     for (Chunk chunk : taskChunks) {
-                        final Disposable disposable = workerList.get(chunk.id);
+                        final Subscription disposable = workerList.get(chunk.id);
                         if (disposable != null) {
-                            disposable.dispose();
+                            disposable.unsubscribe();
                             workerList.remove(chunk.id);
                         }
                     }
