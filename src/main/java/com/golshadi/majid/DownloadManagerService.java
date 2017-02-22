@@ -288,6 +288,11 @@ public class DownloadManagerService extends Service {
                 PendingIntent contentIntent = PendingIntent.getActivity(DownloadManagerService.this,
                         PENDING_INTENT_REQUEST_CODE, intent, PendingIntent.FLAG_UPDATE_CURRENT);
                 builder.setContentIntent(contentIntent);
+
+                NotificationCompat.Action actionMore = new NotificationCompat.Action(
+                        R.drawable.ic_details, "Details", contentIntent);
+                builder.addAction(actionMore);
+
             }
 
             this.speed = 0;
@@ -337,7 +342,7 @@ public class DownloadManagerService extends Service {
 
                 builder.setContentTitle(title)
                         .setContentText(status);
-                if (builder.mActions.size() == 0) builder.mActions.add(action);
+                if (!builder.mActions.contains(action)) builder.mActions.add(action);
                 action.icon = R.drawable.ic_pause_queue;
                 action.actionIntent = getPauseQueuePendingIntent();
                 action.title = "Pause";
@@ -354,7 +359,7 @@ public class DownloadManagerService extends Service {
                 action.actionIntent = getStartQueuePendingIntent();
 
                 if (pendingTaskCount == 0) {
-                    builder.mActions.clear();
+                    builder.mActions.remove(action);
                 }
 
                 builder.setOngoing(false);
