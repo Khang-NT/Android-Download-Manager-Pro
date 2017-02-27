@@ -34,51 +34,54 @@ public class Rebuilder extends Thread{
 
         final File file = new File(task.save_address, task.name);
 
-        FileOutputStream finalFile;
+        FileOutputStream finalFile = null;
         try {
             // append = false : overwrite existing file
             finalFile = new FileOutputStream(file, false);
+
+            byte[] readBuffer = new byte[1024];
+            int read;
+            for (Chunk chunk : taskChunks) {
+                FileInputStream chFileIn;
+                try {
+                    chFileIn = FileUtils.getInputStream(task.save_address, ChunksDataSource.getChunkFileName(chunk.id));
+                } catch (FileNotFoundException e) {
+                    e.printStackTrace();
+                    observer.error(task.id, "Chunk file not found");
+                    return;
+                }
+
+                try {
+                    while ((read = chFileIn.read(readBuffer)) > 0) {
+                        finalFile.write(readBuffer, 0, read);
+                    }
+                } catch (IOException e) {
+                    e.printStackTrace();
+                    observer.error(task.id, "Merge chunk files error: " + e);
+                    return;
+                }
+
+
+                try {
+                    finalFile.flush();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                    observer.error(task.id, "Merge chunk files error: " + e);
+                    return;
+                }
+
+            }
         } catch (FileNotFoundException e) {
             e.printStackTrace();
             observer.error(task.id, "Can't create output file: " + file);
             return;
+        } finally {
+            try {
+                if (finalFile != null) finalFile.close();
+            } catch (Throwable ignore) {
+                ignore.printStackTrace();
+            }
         }
-
-        byte[] readBuffer = new byte[1024];
-        int read;
-        for (Chunk chunk : taskChunks) {
-            FileInputStream chFileIn;
-            try {
-                chFileIn = FileUtils.getInputStream(task.save_address, ChunksDataSource.getChunkFileName(chunk.id));
-            } catch (FileNotFoundException e) {
-                e.printStackTrace();
-                observer.error(task.id, "Chunk file not found");
-                return;
-            }
-
-            try {
-                while ((read = chFileIn.read(readBuffer)) > 0) {
-                    finalFile.write(readBuffer, 0, read);
-                }
-            } catch (IOException e) {
-                e.printStackTrace();
-                observer.error(task.id, "Merge chunk files error: " + e);
-                return;
-            }
-
-
-            try {
-                finalFile.flush();
-            } catch (IOException e) {
-                e.printStackTrace();
-                observer.error(task.id, "Merge chunk files error: " + e);
-                return;
-            }
-
-        }
-
-//            finalFile.flush();
-//            finalFile.close();
 
         observer.reBuildIsDone(task, taskChunks);
     }
