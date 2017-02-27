@@ -42,33 +42,40 @@ public class Rebuilder extends Thread{
             byte[] readBuffer = new byte[1024];
             int read;
             for (Chunk chunk : taskChunks) {
-                FileInputStream chFileIn;
+                FileInputStream chFileIn = null;
                 try {
                     chFileIn = FileUtils.getInputStream(task.save_address, ChunksDataSource.getChunkFileName(chunk.id));
+                    try {
+                        while ((read = chFileIn.read(readBuffer)) > 0) {
+                            finalFile.write(readBuffer, 0, read);
+                        }
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                        observer.error(task.id, "Merge chunk files error: " + e);
+                        return;
+                    }
+
+
+                    try {
+                        finalFile.flush();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                        observer.error(task.id, "Merge chunk files error: " + e);
+                        return;
+                    }
                 } catch (FileNotFoundException e) {
                     e.printStackTrace();
                     observer.error(task.id, "Chunk file not found");
                     return;
-                }
-
-                try {
-                    while ((read = chFileIn.read(readBuffer)) > 0) {
-                        finalFile.write(readBuffer, 0, read);
+                } finally {
+                    if (chFileIn != null) try {
+                        chFileIn.close();
+                    } catch (IOException e) {
+                        e.printStackTrace();
                     }
-                } catch (IOException e) {
-                    e.printStackTrace();
-                    observer.error(task.id, "Merge chunk files error: " + e);
-                    return;
                 }
 
 
-                try {
-                    finalFile.flush();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                    observer.error(task.id, "Merge chunk files error: " + e);
-                    return;
-                }
 
             }
         } catch (FileNotFoundException e) {

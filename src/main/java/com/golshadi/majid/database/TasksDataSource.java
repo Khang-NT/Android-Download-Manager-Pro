@@ -184,8 +184,8 @@ public class TasksDataSource {
         String query = "SELECT * FROM " + TABLES.TASKS + " WHERE " + TASKS.COLUMN_NAME + "=" + SqlString.String(name);
         Cursor cr = database.rawQuery(query, null);
 
-        if (cr != null && cr.getCount() != 0) {
-            result = true;
+        if (cr != null) {
+            result = cr.getCount() != 0;
             cr.close();
         }
 
