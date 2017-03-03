@@ -341,7 +341,7 @@ public class DownloadManagerService extends Service {
 
                 builder.setContentTitle(title)
                         .setContentText(status);
-                if (!builder.mActions.contains(action)) builder.mActions.add(action);
+                if (!builder.mActions.contains(action)) builder.mActions.add(0, action);
                 action.icon = R.drawable.ic_pause_queue;
                 action.actionIntent = getPauseQueuePendingIntent();
                 action.title = "Pause";
