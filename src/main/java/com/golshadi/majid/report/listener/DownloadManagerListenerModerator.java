@@ -135,6 +135,7 @@ public class DownloadManagerListenerModerator implements Action1<Long> {
 
         Task task = tasksDataSource.getTaskInfo(Long.valueOf(taskId).intValue());
         Intent intent = new Intent(DownloadManagerPro.ACTION_DOWNLOAD_COMPLETED);
+        intent.setPackage(context.getPackageName());
         intent.putExtra(DownloadManagerService.TASK_DATA, task);
 
         context.sendBroadcast(intent);
