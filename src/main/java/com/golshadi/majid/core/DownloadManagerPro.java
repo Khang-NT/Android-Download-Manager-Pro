@@ -164,7 +164,7 @@ public class DownloadManagerPro {
 
     public List<ReportStructure> queueStatusReport(boolean downloading) {
         List<ReportStructure> result = new ArrayList<>();
-        Set<Integer> uncompletedTasks = queue.getUncompletedTasks();
+        Set<Integer> uncompletedTasks = Collections.unmodifiableSet(queue.getUncompletedTasks());
         for (Integer taskId : uncompletedTasks) {
             if (queue.isDownloading(taskId) == downloading) {
                 ReportStructure rs = singleDownloadStatus(taskId);
