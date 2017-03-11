@@ -1,7 +1,6 @@
 package com.golshadi.majid.core;
 
 import android.content.Context;
-import android.os.Environment;
 import android.support.annotation.Nullable;
 import android.util.Log;
 
@@ -121,8 +120,7 @@ public class DownloadManagerPro {
             deleteSameDownloadNameTask(saveName);
         }
         chunk = setMaxChunk(chunk);
-        String saveAddress = Environment.getExternalStorageDirectory() + "/" + sdCardFolderAddress;
-        Task task = insertNewTask(saveName, url, chunk, saveAddress, true, jsonExtra, fileSize);
+        Task task = insertNewTask(saveName, url, chunk, sdCardFolderAddress, true, jsonExtra, fileSize);
         ReportStructure rs = new ReportStructure();
         rs.setObjectValues(task, Collections.emptyList());
         moderator.putReport(rs);
