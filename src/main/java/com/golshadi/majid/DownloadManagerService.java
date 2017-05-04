@@ -292,6 +292,7 @@ public class DownloadManagerService extends Service {
                 NotificationCompat.Action actionMore = new NotificationCompat.Action(
                         R.drawable.ic_details_black_24dp, "Details", contentIntent);
                 builder.addAction(actionMore);
+
             }
 
             this.speed = 0;
