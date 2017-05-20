@@ -97,7 +97,11 @@ public class AsyncWorker {
                 .onErrorResumeNext(error -> {
                     // Moderator didn't handle complete or error state by observable chain
                     // use callback method instead
-                    moderator.error(task.id, "Download chunk failed: " + error.getMessage());
+                    try {
+                        moderator.error(task.id, "Download chunk failed: " + error.getMessage());
+                    } catch (Throwable ex) {
+                        Timber.d(ex);
+                    }
                     return Observable.empty();
                 });
     }
