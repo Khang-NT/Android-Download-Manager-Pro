@@ -5,7 +5,8 @@
 
     <application>
         <service android:name=".DownloadManagerService"
-            android:label="@string/download_manager_service_label">
+            android:label="@string/download_manager_service_label"
+            android:exported="false">
             <intent-filter>
                 <action android:name="download.manager.action.start"/>
                 <action android:name="download.manager.action.update_settings"/>
