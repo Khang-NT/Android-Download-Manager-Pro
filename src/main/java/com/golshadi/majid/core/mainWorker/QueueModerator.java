@@ -57,11 +57,13 @@ public class QueueModerator
     }
 
     public void addOnQueueChangedListener(OnQueueChanged listener) {
-        for (WeakReference<OnQueueChanged> weakReference : listeners) {
-            if (weakReference.get() == listener)
-                return;
+        synchronized (listeners) {
+            for (WeakReference<OnQueueChanged> weakReference : listeners) {
+                if (weakReference.get() == listener)
+                    return;
+            }
+            listeners.add(new WeakReference<>(listener));
         }
-        listeners.add(new WeakReference<>(listener));
     }
 
     public QueueModerator setDownloadTaskPerTime(int downloadTaskPerTime) {
@@ -174,19 +176,21 @@ public class QueueModerator
 
     private synchronized void notifyListeners() {
         int downloading = getDownloadingCount(), pending = getPendingTaskCount();
-        for (WeakReference<OnQueueChanged> weakReference : listeners) {
-            final OnQueueChanged listener = weakReference.get();
-            if (listener != null) {
-                listener.onQueueChanged(downloading, pending);
+        synchronized (listeners) {
+            for (WeakReference<OnQueueChanged> weakReference : listeners) {
+                final OnQueueChanged listener = weakReference.get();
+                if (listener != null) {
+                    listener.onQueueChanged(downloading, pending);
+                }
             }
-        }
-        // clean up null reference
-        if (listeners.size() > 5) {
-            Iterator<WeakReference<OnQueueChanged>> iterator = listeners.iterator();
-            while (iterator.hasNext()) {
-                WeakReference<OnQueueChanged> weakReference = iterator.next();
-                if (weakReference.get() == null)
-                    iterator.remove();
+            // clean up null reference
+            if (listeners.size() > 5) {
+                Iterator<WeakReference<OnQueueChanged>> iterator = listeners.iterator();
+                while (iterator.hasNext()) {
+                    WeakReference<OnQueueChanged> weakReference = iterator.next();
+                    if (weakReference.get() == null)
+                        iterator.remove();
+                }
             }
         }
     }

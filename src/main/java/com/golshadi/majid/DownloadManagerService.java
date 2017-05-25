@@ -325,7 +325,7 @@ public class DownloadManagerService extends Service {
         }
 
         @Override
-        public void onSpeedChanged(long bytesPerSec) {
+        public synchronized void onSpeedChanged(long bytesPerSec) {
             speed = bytesPerSec;
             String title = "Download manager " + getSpeedAsString(speed);
             builder.setContentTitle(title);

@@ -21,6 +21,7 @@ import com.golshadi.majid.report.listener.DownloadSpeedListener;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -162,7 +163,7 @@ public class DownloadManagerPro {
 
     public List<ReportStructure> queueStatusReport(boolean downloading) {
         List<ReportStructure> result = new ArrayList<>();
-        Set<Integer> uncompletedTasks = Collections.unmodifiableSet(queue.getUncompletedTasks());
+        Set<Integer> uncompletedTasks = new HashSet<>(queue.getUncompletedTasks());
         for (Integer taskId : uncompletedTasks) {
             if (queue.isDownloading(taskId) == downloading) {
                 ReportStructure rs = singleDownloadStatus(taskId);
